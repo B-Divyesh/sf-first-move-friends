@@ -26,14 +26,13 @@ async function startServer(extra = {}) {
   throw new Error('Room test server did not start.');
 }
 
-async function request(base, pathname, { token, body, ip = '198.51.100.10', trustedIp, method = 'GET' } = {}) {
+async function request(base, pathname, { token, body, ip = '198.51.100.10', method = 'GET' } = {}) {
   const response = await fetch(`${base}${pathname}`, {
     method,
     headers: {
       Origin: origin,
       'Content-Type': 'application/json',
       'X-Forwarded-For': ip,
-      ...(trustedIp ? { 'X-Envoy-External-Address': trustedIp } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
     body: body === undefined ? undefined : JSON.stringify(body)
@@ -73,12 +72,12 @@ test('rooms use unguessable expiring codes and authoritative synchronized turns'
 });
 
 test('rotating caller-controlled forwarding headers cannot bypass 429', async (t) => {
-  const { child, base } = await startServer({ TRUSTED_CLIENT_IP_HEADER: 'x-envoy-external-address' });
+  const { child, base } = await startServer({ TRUST_PROXY_HOPS: '1' });
   t.after(() => child.kill('SIGTERM'));
   const responses = [];
   for (let count = 0; count < 7; count += 1) {
     responses.push((await request(base, '/v1/rooms', {
-      method: 'POST', body: {}, ip: `203.0.113.${count + 1}`, trustedIp: '198.51.100.77'
+      method: 'POST', body: {}, ip: `203.0.113.${count + 1}, 198.51.100.77`
     })).response);
   }
   assert.deepEqual(responses.map((response) => response.status), [201, 201, 201, 201, 201, 201, 429]);
