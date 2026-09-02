@@ -8,6 +8,7 @@ import { activePlayer, createGame, legalCells, placeTile } from './game.mjs';
 
 const port = Number(process.env.PORT || 4174);
 const dataDir = process.env.DATA_DIR || '/data';
+const databaseFile = process.env.ROOM_DATABASE_FILE || 'rooms.sqlite';
 const ttlMs = Number(process.env.ROOM_TTL_MS || 2 * 60 * 60 * 1000);
 const cleanupMs = Number(process.env.ROOM_CLEANUP_MS || 10 * 60 * 1000);
 const rateWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
@@ -18,7 +19,7 @@ const allowedOrigins = new Set([
   'http://localhost:4173'
 ]);
 fs.mkdirSync(dataDir, { recursive: true });
-const db = new DatabaseSync(`${dataDir}/rooms.sqlite`);
+const db = new DatabaseSync(`${dataDir}/${databaseFile}`);
 db.exec(`PRAGMA busy_timeout=5000;
   PRAGMA journal_mode=DELETE;
   CREATE TABLE IF NOT EXISTS rooms (
