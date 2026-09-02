@@ -19,8 +19,7 @@ const allowedOrigins = new Set([
   'http://localhost:4173'
 ]);
 fs.mkdirSync(dataDir, { recursive: true });
-const db = new DatabaseSync(`${dataDir}/${databaseFile}`);
-db.exec(`PRAGMA busy_timeout=5000;
+const schema = `PRAGMA busy_timeout=5000;
   CREATE TABLE IF NOT EXISTS rooms (
     code TEXT PRIMARY KEY,
     host_hash TEXT NOT NULL,
@@ -36,7 +35,27 @@ db.exec(`PRAGMA busy_timeout=5000;
     bucket_key TEXT PRIMARY KEY,
     window_start INTEGER NOT NULL,
     request_count INTEGER NOT NULL
-  );`);
+  );`;
+
+async function openDatabase() {
+  let lastError;
+  for (let attempt = 1; attempt <= 60; attempt += 1) {
+    const candidate = new DatabaseSync(`${dataDir}/${databaseFile}`);
+    try {
+      candidate.exec(schema);
+      return candidate;
+    } catch (error) {
+      lastError = error;
+      candidate.close();
+      if (!(error instanceof Error) || !error.message.includes('database is locked') || attempt === 60) break;
+      console.warn(`SQLite storage is busy; retrying startup (${attempt}/60).`);
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
+  }
+  throw lastError;
+}
+
+const db = await openDatabase();
 
 const findRoom = db.prepare('SELECT * FROM rooms WHERE code = ?');
 const insertRoom = db.prepare('INSERT INTO rooms(code, host_hash, state_json, created_at, updated_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)');
