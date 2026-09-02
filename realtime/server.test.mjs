@@ -72,13 +72,11 @@ test('rooms use unguessable expiring codes and authoritative synchronized turns'
 });
 
 test('rotating caller-controlled forwarding headers cannot bypass 429', async (t) => {
-  const { child, base } = await startServer({ TRUST_PROXY_HOPS: '1' });
+  const { child, base } = await startServer();
   t.after(() => child.kill('SIGTERM'));
   const responses = [];
   for (let count = 0; count < 7; count += 1) {
-    responses.push((await request(base, '/v1/rooms', {
-      method: 'POST', body: {}, ip: `203.0.113.${count + 1}, 198.51.100.77`
-    })).response);
+    responses.push((await request(base, '/v1/rooms', { method: 'POST', body: {}, ip: `203.0.113.${count + 1}` })).response);
   }
   assert.deepEqual(responses.map((response) => response.status), [201, 201, 201, 201, 201, 201, 429]);
   assert.equal(responses.at(-1).headers.get('retry-after'), '60');

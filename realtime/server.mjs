@@ -11,7 +11,6 @@ const ttlMs = Number(process.env.ROOM_TTL_MS || 2 * 60 * 60 * 1000);
 const cleanupMs = Number(process.env.ROOM_CLEANUP_MS || 10 * 60 * 1000);
 const rateWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
 const maxBuckets = Math.max(10, Number(process.env.RATE_LIMIT_MAX_BUCKETS || 5_000));
-const trustedProxyHops = Math.max(0, Number(process.env.TRUSTED_PROXY_HOPS || 0));
 const buildId = process.env.BUILD_ID || 'development';
 const allowedOrigins = new Set([
   'https://first-move-friends.sociobot.in',
@@ -89,11 +88,7 @@ function send(res, status, body, origin, extra = {}) {
 }
 
 function clientIp(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',').map((value) => value.trim()).filter(Boolean);
-  const ingressIdentity = trustedProxyHops > 0 && forwarded.length >= trustedProxyHops
-    ? forwarded[forwarded.length - trustedProxyHops]
-    : '';
-  return (ingressIdentity || req.socket.remoteAddress || 'unknown').slice(0, 128);
+  return String(req.socket.remoteAddress || 'unknown').slice(0, 128);
 }
 
 function rateLimited(req, group, limit) {
