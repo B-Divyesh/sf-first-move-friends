@@ -1,6 +1,7 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import net from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { WebSocketServer } from 'ws';
 import { activePlayer, createGame, legalCells, placeTile } from './game.mjs';
@@ -95,14 +96,27 @@ function send(res, status, body, origin, extra = {}) {
   res.end(JSON.stringify(body));
 }
 
-function rateLimited(group, limit) {
+function clientIdentity(req) {
+  // Azure Container Apps appends the ingress-observed address to X-Forwarded-For.
+  // Reading from the right prevents a caller from choosing the identity by adding
+  // an untrusted value on the left. Direct local requests fall back to the socket.
+  const forwarded = String(req.headers['x-forwarded-for'] || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => net.isIP(value));
+  const address = forwarded.at(-1) || req.socket.remoteAddress || 'unknown';
+  return hash(address.replace(/^::ffff:/, ''));
+}
+
+function rateLimited(group, client, limit) {
   const now = Date.now();
   const windowStart = Math.floor(now / rateWindowMs) * rateWindowMs;
+  const bucket = `${group}:${client}`;
   db.exec('BEGIN IMMEDIATE');
   try {
-    upsertLimit.run(group, windowStart);
+    upsertLimit.run(bucket, windowStart);
     deleteOldLimits.run(windowStart - rateWindowMs);
-    const count = findLimit.get(group).request_count;
+    const count = findLimit.get(bucket).request_count;
     db.exec('COMMIT');
     return count > limit;
   } catch (error) {
@@ -169,13 +183,14 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(204, headers(origin));
     return res.end();
   }
-  if (rateLimited('all', 180)) return send(res, 429, { error: 'Too many requests. Wait one minute.' }, origin, { 'Retry-After': '60' });
+  const client = clientIdentity(req);
+  if (rateLimited('all', client, 180)) return send(res, 429, { error: 'Too many requests. Wait one minute.' }, origin, { 'Retry-After': '60' });
   const url = new URL(req.url || '/', 'http://localhost');
   if (req.method === 'GET' && url.pathname === '/') return send(res, 200, { service: 'First Move Friends room service', buildId }, origin);
   if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true, buildId }, origin);
 
   if (req.method === 'POST' && url.pathname === '/v1/rooms') {
-    if (rateLimited('create', 6)) return send(res, 429, { error: 'Too many rooms created. Wait one minute.' }, origin, { 'Retry-After': '60' });
+    if (rateLimited('create', client, 6)) return send(res, 429, { error: 'Too many rooms created. Wait one minute.' }, origin, { 'Retry-After': '60' });
     const now = Date.now();
     let roomCode = code();
     while (findRoom.get(roomCode)) roomCode = code();
@@ -193,7 +208,7 @@ const server = http.createServer(async (req, res) => {
   if (!room) return;
 
   if (req.method === 'POST' && action === 'join') {
-    if (rateLimited('join', 20)) return send(res, 429, { error: 'Too many join attempts. Wait one minute.' }, origin, { 'Retry-After': '60' });
+    if (rateLimited('join', client, 20)) return send(res, 429, { error: 'Too many join attempts. Wait one minute.' }, origin, { 'Retry-After': '60' });
     if (room.guest_hash) return send(res, 409, { error: 'This room already has two players.' }, origin);
     const guestToken = token();
     seatGuest.run(hash(guestToken), Date.now(), roomCode);

@@ -10,9 +10,9 @@ The demo uses deterministic seed `sample42` and starts on move one with an empty
 
 ## Isolation
 
-Demo progress uses `localStorage` key `demo:game`; its sound choice uses `demo:settings`. Local games use `real:` keys. Online player keys use `room:<code>:token`. Demo rendering never reads or writes either namespace.
+Demo progress uses `localStorage` keys `demo:game` and `demo:timing`; its sound choice uses `demo:settings`. Local games use `real:` keys. Online player keys use `room:<code>:token`. Demo rendering never reads or writes either namespace.
 
-“Reset demo” removes only `demo:game` and rebuilds the empty sample. “Start for real” discards the demo state, creates an isolated expiring online room, and opens it as Sun.
+“Reset demo” removes sample board and timing data, then rebuilds the empty sample. “Start for real” discards that demo data, creates an isolated expiring online room, and opens it as Sun.
 
 ## Verification
 

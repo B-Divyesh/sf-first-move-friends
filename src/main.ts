@@ -74,6 +74,44 @@ function settingsKey(demo: boolean): string {
   return demo ? 'demo:settings' : 'real:settings';
 }
 
+interface MatchTiming {
+  seed: string;
+  rematch: number;
+  startedAt: number;
+  finishedAt?: number;
+}
+
+function timingKey(demo: boolean): string {
+  return demo ? 'demo:timing' : 'real:timing';
+}
+
+function timingFor(state: GameState, demo: boolean): MatchTiming {
+  try {
+    const saved = JSON.parse(localStorage.getItem(timingKey(demo)) || 'null') as MatchTiming | null;
+    if (saved && saved.seed === state.seed && saved.rematch === state.rematch && Number.isFinite(saved.startedAt)) return saved;
+  } catch {
+    // A malformed local timer is replaced below without affecting the board.
+  }
+  const timing = { seed: state.seed, rematch: state.rematch, startedAt: Date.now() };
+  localStorage.setItem(timingKey(demo), JSON.stringify(timing));
+  return timing;
+}
+
+function finishTiming(state: GameState, demo: boolean): void {
+  const timing = timingFor(state, demo);
+  if (state.status === 'finished' && !timing.finishedAt) {
+    timing.finishedAt = Date.now();
+    localStorage.setItem(timingKey(demo), JSON.stringify(timing));
+  }
+}
+
+function matchDuration(state: GameState, demo: boolean): string {
+  const timing = timingFor(state, demo);
+  const seconds = Math.max(0, Math.round(((timing.finishedAt || Date.now()) - timing.startedAt) / 1000));
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes} min ${String(seconds % 60).padStart(2, '0')} sec`;
+}
+
 function escapeText(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] || character);
 }
@@ -87,6 +125,7 @@ function loadGame(demo: boolean): GameState {
     })();
     if (requested.seed !== savedSeed) {
       localStorage.setItem(storageKey(false), JSON.stringify(requested));
+      timingFor(requested, false);
       return requested;
     }
   }
@@ -94,7 +133,11 @@ function loadGame(demo: boolean): GameState {
   if (saved) {
     try {
       const parsed: unknown = JSON.parse(saved);
-      if (isGameState(parsed)) return { ...parsed, paused: false };
+      if (isGameState(parsed)) {
+        const state = { ...parsed, paused: false };
+        timingFor(state, demo);
+        return state;
+      }
       localStorage.removeItem(storageKey(demo));
     } catch {
       localStorage.removeItem(storageKey(demo));
@@ -103,15 +146,18 @@ function loadGame(demo: boolean): GameState {
   if (demo) {
     const sample = createDemoGame();
     localStorage.setItem(storageKey(true), JSON.stringify(sample));
+    timingFor(sample, true);
     return sample;
   }
   const game = createGame(querySeed || createSeed());
   localStorage.setItem(storageKey(false), JSON.stringify(game));
+  timingFor(game, false);
   return game;
 }
 
 function saveGame(state: GameState, demo: boolean): void {
   localStorage.setItem(storageKey(demo), JSON.stringify(state));
+  finishTiming(state, demo);
 }
 
 function muted(demo: boolean): boolean {
@@ -168,7 +214,7 @@ function footer(): string {
         <a href="/terms" data-route>Terms</a>
         <a href="https://hello-factory.sociobot.in" target="_blank" rel="noreferrer">Built by Param Factory <span class="sr-only">(opens in a new tab)</span></a>
       </div>
-      <p class="build-note">v1.0 · Original generated scene</p>
+      <p class="build-note">v1.0.1 · Original generated scene</p>
     </footer>`;
 }
 
@@ -219,7 +265,7 @@ function scoreMarkup(state: GameState): string {
   </div>`;
 }
 
-function gameMarkup(state: GameState, demo: boolean, preview = false, canInteract = true, onlineStatus = ''): string {
+function gameMarkup(state: GameState, demo: boolean, preview = false, canInteract = true, onlineStatus = '', duration = ''): string {
   const goal = GOALS[state.goal];
   const result = state.status === 'finished';
   return `<section class="game-stage ${preview ? 'preview' : ''}" aria-label="Lantern game">
@@ -234,10 +280,10 @@ function gameMarkup(state: GameState, demo: boolean, preview = false, canInterac
     ${scoreMarkup(state)}
     <div class="play-area">
       ${boardMarkup(state, !preview && !result && canInteract)}
-      <aside class="turn-panel" aria-live="polite">
-        ${result ? `<span class="eyebrow">Match complete</span><h2>${winnerText(state)}</h2><p>Every lantern is placed. Start a rematch for a new tile order and goal.</p>` : `<span class="eyebrow">Move ${state.placements.length + 1}</span><h2>${preview ? 'The first moves teach the game' : escapeText(onlineStatus || tutorialText(state))}</h2><p>${state.placements.length < 3 ? 'Only useful cells are marked. No rulebook is needed.' : `Next tile: ${state.tileOrder[state.placements.length]}. ${goal.short}.`}</p>`}
+      <div class="turn-panel" aria-live="polite">
+        ${result ? `<span class="eyebrow">Match complete</span><h2>${winnerText(state)}</h2><p>Every lantern is placed. Start a rematch for a new tile order and goal.</p>${duration ? `<p class="match-duration" data-match-duration>Match time: ${escapeText(duration)}</p>` : ''}` : `<span class="eyebrow">Move ${state.placements.length + 1}</span><h2>${preview ? 'The first moves teach the game' : escapeText(onlineStatus || tutorialText(state))}</h2><p>${state.placements.length < 3 ? 'Only useful cells are marked. No rulebook is needed.' : `Next tile: ${state.tileOrder[state.placements.length]}. ${goal.short}.`}</p>`}
         ${preview ? '<a class="button primary compact" href="/demo" data-route>Play this sample</a>' : result ? '<button class="button primary compact" type="button" data-action="rematch">Play a rematch</button>' : '<button class="text-button" type="button" data-action="pause">Pause match</button>'}
-      </aside>
+      </div>
     </div>
   </section>`;
 }
@@ -256,7 +302,6 @@ function landing(): string {
             <a class="button primary" href="/demo" data-route>Try it with sample data</a>
             <span>Starts a guided match against Moon.</span>
           </div>
-          <div class="mode-actions"><button class="button secondary" type="button" data-action="new-room">Start an online game</button><button class="text-button" type="button" data-action="new-game">Play on one screen</button></div><p class="hero-status" role="status" aria-live="polite"></p>
           <ul class="plain-facts" aria-label="Game facts">
             <li>The saved demo works offline after the first visit.</li>
             <li>No account, chat, or ads.</li>
@@ -264,6 +309,7 @@ function landing(): string {
           </ul>
         </div>
         <div class="hero-game">${gameMarkup(preview, true, true)}</div>
+        <div class="hero-options"><div class="mode-actions"><button class="button secondary" type="button" data-action="new-room">Start an online game</button><button class="text-button" type="button" data-action="new-game">Play on one screen</button></div><p class="hero-status" role="status" aria-live="polite"></p></div>
       </section>
       <section class="how section-wrap">
         <div class="section-heading"><span class="eyebrow">How it works</span><h2>Finish one board in three steps</h2></div>
@@ -292,7 +338,7 @@ function roomTokenKey(code: string): string {
   return `room:${code}:token`;
 }
 
-function roomLoadingPage(code: string): string {
+function roomLoadingPage(): string {
   const message = roomError || 'Connecting to the room…';
   const retry = roomError === 'The online room could not be reached. Check your connection, then try this room again.';
   return `${header()}<main id="main" class="play-page room-state"><span class="eyebrow">Online room</span><h1 tabindex="-1">Join a lantern duel</h1><p role="status">${escapeText(message)}</p>${retry ? '<button class="button primary" type="button" data-action="retry-room">Try this room again</button><a class="text-button" href="/" data-route>Start a new game</a>' : roomError ? '<a class="button primary" href="/" data-route>Start a new game</a>' : ''}</main>${footer()}`;
@@ -300,7 +346,7 @@ function roomLoadingPage(code: string): string {
 
 function playPage(demo: boolean): string {
   const code = !demo ? roomCode() : null;
-  if (code && (!roomSnapshot || roomSnapshot.code !== code)) return roomLoadingPage(code);
+  if (code && (!roomSnapshot || roomSnapshot.code !== code)) return roomLoadingPage();
   if (code && roomSnapshot) {
     const state = roomSnapshot.state;
     const current = activePlayer(state);
@@ -320,12 +366,13 @@ function playPage(demo: boolean): string {
   }
   const state = loadGame(demo);
   const headline = demo ? 'Play a guided sample match' : 'Play a lantern duel together';
+  const duration = state.status === 'finished' ? matchDuration(state, demo) : '';
   return `${demo ? demoBanner() : ''}${header()}
     <main id="main" class="play-page">
       <div class="play-heading">
         <div><span class="eyebrow">${demo ? 'Sample match' : `Setup ${escapeText(state.seed.toUpperCase())}`}</span><h1 tabindex="-1">${headline}</h1><p>${demo ? 'You place Sun lanterns. Moon answers with an automatic move. A match is designed for 6–10 minutes.' : 'Pass this screen between two players. The board teaches the opening moves.'}</p></div>
       </div>
-      ${gameMarkup(state, demo)}
+      ${gameMarkup(state, demo, false, true, '', duration)}
       <p id="copy-status" class="status-line" aria-live="polite"></p>
       <dialog class="pause-dialog" aria-labelledby="pause-title"><div><span class="eyebrow">Match paused</span><h2 id="pause-title">The board is covered</h2><p>Your current turn is saved on this device.</p><button class="button primary" type="button" data-action="resume">Resume match</button></div></dialog>
     </main>${footer()}`;
@@ -381,6 +428,11 @@ function stopRoomConnection(): void {
   roomPoll = undefined;
 }
 
+function startRoomPolling(code: string, token: string): void {
+  window.clearInterval(roomPoll);
+  roomPoll = window.setInterval(() => void refreshRoom(code, token), 2000);
+}
+
 async function refreshRoom(code: string, token: string): Promise<void> {
   try {
     const next = await roomRequest(`/v1/rooms/${encodeURIComponent(code)}`, {}, token);
@@ -401,13 +453,22 @@ function openRoomConnection(code: string, token: string): void {
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     url.pathname = `/v1/rooms/${encodeURIComponent(code)}/events`;
     url.search = `token=${encodeURIComponent(token)}`;
-    roomSocket = new WebSocket(url);
-    roomSocket.addEventListener('message', () => void refreshRoom(code, token));
-    roomSocket.addEventListener('close', () => { roomSocket = undefined; });
+    const socket = new WebSocket(url);
+    roomSocket = socket;
+    socket.addEventListener('message', () => void refreshRoom(code, token));
+    socket.addEventListener('open', () => {
+      window.clearInterval(roomPoll);
+      roomPoll = undefined;
+    });
+    socket.addEventListener('close', () => {
+      if (roomSocket !== socket || routePath() !== '/play' || roomCode() !== code) return;
+      roomSocket = undefined;
+      startRoomPolling(code, token);
+    });
   } catch {
     roomSocket = undefined;
+    startRoomPolling(code, token);
   }
-  roomPoll = window.setInterval(() => void refreshRoom(code, token), 2000);
 }
 
 async function ensureRoom(code: string): Promise<void> {
@@ -532,7 +593,10 @@ function bindActions(path: string): void {
       const action = button.dataset.action;
       const demo = path === '/demo';
       if (action === 'new-room' || action === 'start-real') {
-        if (action === 'start-real') localStorage.removeItem('demo:game');
+        if (action === 'start-real') {
+          localStorage.removeItem('demo:game');
+          localStorage.removeItem('demo:timing');
+        }
         button.disabled = true;
         button.textContent = 'Creating room…';
         try {
@@ -561,6 +625,7 @@ function bindActions(path: string): void {
         navigate(`/play?seed=${game.seed}`);
       } else if (action === 'reset-demo') {
         localStorage.removeItem('demo:game');
+        localStorage.removeItem('demo:timing');
         render();
       } else if (action === 'rematch') {
         const code = roomCode();

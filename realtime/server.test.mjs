@@ -20,7 +20,9 @@ async function startServer(extra = {}) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
       if ((await fetch(`${base}/health`)).ok) return { child, base, dataDir };
-    } catch {}
+    } catch {
+      // The service may still be starting.
+    }
     await new Promise((resolve) => setTimeout(resolve, 40));
   }
   throw new Error('Room test server did not start.');
@@ -71,18 +73,19 @@ test('rooms use unguessable expiring codes and authoritative synchronized turns'
   assert.equal(expired.response.status, 410);
 });
 
-test('rotating caller-controlled forwarding headers cannot bypass 429', async (t) => {
+test('@claim:client-rate-limits rate allowances isolate clients and ignore spoofed left-most forwarding hops', async (t) => {
   const { child, base } = await startServer();
   t.after(() => child.kill('SIGTERM'));
   const responses = [];
   for (let count = 0; count < 7; count += 1) {
-    responses.push((await request(base, '/v1/rooms', { method: 'POST', body: {}, ip: `203.0.113.${count + 1}` })).response);
+    responses.push((await request(base, '/v1/rooms', { method: 'POST', body: {}, ip: `198.51.100.${count + 1}, 203.0.113.10` })).response);
   }
   assert.deepEqual(responses.map((response) => response.status), [201, 201, 201, 201, 201, 201, 429]);
   assert.equal(responses.at(-1).headers.get('retry-after'), '60');
+  assert.equal((await request(base, '/v1/rooms', { method: 'POST', body: {}, ip: '203.0.113.11' })).response.status, 201);
 });
 
-test('separate service replicas share the same SQLite allowance', async (t) => {
+test('separate service replicas share each client allowance without sharing it between clients', async (t) => {
   const dataDir = await mkdtemp(path.join(tmpdir(), 'fmf-shared-rate-'));
   const first = await startServer({ DATA_DIR: dataDir });
   const second = await startServer({ DATA_DIR: dataDir });
@@ -91,9 +94,10 @@ test('separate service replicas share the same SQLite allowance', async (t) => {
   const responses = [];
   for (let count = 0; count < 7; count += 1) {
     const base = count % 2 === 0 ? first.base : second.base;
-    responses.push((await request(base, '/v1/rooms', { method: 'POST', body: {}, ip: `203.0.113.${count + 1}` })).response.status);
+    responses.push((await request(base, '/v1/rooms', { method: 'POST', body: {}, ip: '203.0.113.20' })).response.status);
   }
   assert.deepEqual(responses, [201, 201, 201, 201, 201, 201, 429]);
+  assert.equal((await request(second.base, '/v1/rooms', { method: 'POST', body: {}, ip: '203.0.113.21' })).response.status, 201);
 });
 
 test('rate buckets expire after their fixed window', async (t) => {
@@ -120,6 +124,27 @@ test('@claim:sqlite-cleanup expired rooms are removed from SQLite', async (t) =>
   assert.equal(database.prepare('SELECT COUNT(*) AS count FROM rooms').get().count, 0);
 });
 
+test('@claim:durable-room-restart an active room survives a room-service restart with the same data directory', async (t) => {
+  const dataDir = await mkdtemp(path.join(tmpdir(), 'fmf-durable-room-'));
+  const first = await startServer({ DATA_DIR: dataDir });
+  const created = await request(first.base, '/v1/rooms', { method: 'POST', body: {} });
+  const joined = await request(first.base, `/v1/rooms/${created.json.code}/join`, { method: 'POST', body: {}, ip: '203.0.113.31' });
+  assert.equal(joined.response.status, 200);
+  const moved = await request(first.base, `/v1/rooms/${created.json.code}/moves`, {
+    method: 'POST', token: created.json.token, body: { cell: 5, version: 0 }
+  });
+  assert.equal(moved.response.status, 200);
+  first.child.kill('SIGTERM');
+  await new Promise((resolve) => first.child.once('exit', resolve));
+
+  const restarted = await startServer({ DATA_DIR: dataDir });
+  t.after(() => restarted.child.kill('SIGTERM'));
+  const restored = await request(restarted.base, `/v1/rooms/${created.json.code}`, { token: joined.json.token });
+  assert.equal(restored.response.status, 200);
+  assert.equal(restored.json.version, 1);
+  assert.equal(restored.json.state.placements.length, 1);
+});
+
 test('health and response headers expose the immutable realtime build identity', async (t) => {
   const { child, base } = await startServer({ BUILD_ID: 'repair-test-build' });
   t.after(() => child.kill('SIGTERM'));
@@ -134,6 +159,10 @@ test('static deployment config preserves a real 404 for unknown routes', async (
   assert.deepEqual(config.responseOverrides['404'], { rewrite: '/404.html' });
   for (const route of ['/demo', '/play', '/privacy', '/terms']) {
     assert.ok(config.routes.some((entry) => entry.route === route && entry.rewrite === '/index.html' && entry.statusCode === undefined));
+  }
+  const notFound = await readFile(new URL('../public/404.html', import.meta.url), 'utf8');
+  for (const required of ['<header', '<nav', '<main', '<footer', 'meta name="description"', 'rel="canonical"', 'Built by Param Factory']) {
+    assert.ok(notFound.includes(required), `404.html must include ${required}`);
   }
 });
 

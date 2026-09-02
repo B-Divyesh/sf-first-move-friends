@@ -19,7 +19,7 @@ Audited 2026-09-02. Counts treat hyphenated terms and numerals as one word. No s
 | Score 2 points on an outside edge. | 7 | Pass |
 | Each neighboring rival adds 1 point. | 6 | Pass |
 | Live preview | 2 | Pass |
-| Turn 5 of 16 | 4 | Pass |
+| Turn 1/16 | 2 | Pass |
 | The first moves teach the game | 6 | Pass |
 | Next tile: spark. | 3 | Pass |
 | Edges and rivals score. | 4 | Pass |
@@ -56,6 +56,7 @@ Audited 2026-09-02. Counts treat hyphenated terms and numerals as one word. No s
 | The online room could not be reached. | 7 | Pass |
 | Check your connection, then try this room again. | 8 | Pass |
 | Try this room again | 4 | Pass |
+| Match time: 6 min 04 sec | 6 | Pass |
 
 ## Terminology
 

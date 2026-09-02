@@ -4,7 +4,7 @@ Play a guided 4×4 lantern duel with a friend on one screen or two.
 
 First Move Friends is a free two-player browser game. Place 16 lanterns around one public goal. The first three turns mark useful cells, so new players learn during the match. Online games use a private expiring room; local games work on one shared screen.
 
-Intended session length: 6–10 minutes for one 16-turn match. This allows about 22.5–37.5 seconds for each turn.
+Intended session length: 6–10 minutes for one 16-turn match. The end screen records the measured match time.
 
 ## Try the demo
 
@@ -14,7 +14,11 @@ Open `/demo`, or run the site and visit `http://localhost:5173/demo`. The sample
 
 Choose “Start an online game” and send the invite link to one friend. The private room expires two hours after creation. The room service validates the player, turn, board cell, and state version before saving a move. Refreshing either screen reconnects it with its local player key.
 
-The static site stays at `first-move-friends.sociobot.in`. Its product-owned room service is `first-move-friends-realtime.sociobot.in` and stores rooms in SQLite at `/data`.
+The static site stays at `first-move-friends.sociobot.in`. Its product-owned room service is `first-move-friends-realtime.sociobot.in`. A durable fleet-managed volume mounts its SQLite data at `/data`.
+
+## Play on one screen
+
+Choose “Play on one screen” and pass the device after each turn. Sun and Moon alternate on the same saved board. Refresh restores the match. The scored end screen offers a one-tap rematch.
 
 ## Controls
 
@@ -31,6 +35,7 @@ Requires Node.js 22 or newer.
 npm ci
 npm test
 npm run typecheck
+npm run lint
 npm run build
 npm run preview
 ```
@@ -45,11 +50,11 @@ DATA_DIR=.data PORT=4174 node realtime/server.mjs
 
 ## Deploy
 
-Deploy `dist/` to the product’s static host. Build the product-owned room service from the repository root with `realtime/Dockerfile`. Pass an immutable source or commit identifier as the `BUILD_ID` build argument. The factory owns deployment; this repository does not change DNS or shared infrastructure.
+Deploy `dist/` to the product’s static host. Build the product-owned room service from the repository root with `realtime/Dockerfile`. Set `deploy.data_dir` to `/data` so the fleet mounts `sf-first-move-friends-realtime-data`. Pass an immutable source or commit identifier as the `BUILD_ID` build argument. The factory owns DNS and shared infrastructure.
 
 ## Privacy and accessibility
 
-There are no accounts, analytics, ads, or third-party runtime scripts. Local and demo progress stays in localStorage. Online moves and opaque player keys go only to the product-owned room service. Expired rooms are removed from its SQLite database.
+There are no accounts, analytics, ads, or third-party runtime scripts. Local and demo progress stays in localStorage. Online moves and opaque player keys go only to the product-owned room service. Request allowances are isolated by the client address observed by the trusted ingress. Expired rooms are removed from its SQLite database.
 
 Sun and Moon use symbols and border styles as well as color. The board supports keyboard and touch input. Reduced-motion mode removes movement and transitions. The saved demo works offline after its first visit; online rooms need a connection.
 

@@ -34,6 +34,8 @@ Display type uses **Fraunces**, an OFL variable serif, for the round carved feel
 
 An 8 px base rhythm drives spacing (`8, 16, 24, 32, 48, 64, 96`). Controls are at least 44 px. Board cells use clipped corners and inset rings, like folded paper lanterns. Panels use 18–28 px radii; buttons use a compact 12 px radius so they remain controls, not cards.
 
+At 390 px, the useful copy, primary sample action, and three facts stay first. The compact goal, score, and full 4×4 preview follow inside the first 844 px. Secondary online and local mode controls move below the board. The phone preview drops only the duplicate turn explanation; game routes retain every control and instruction.
+
 ## Interaction grammar
 
 - A legal board cell lifts 3 px and gains a dotted orbit on hover or focus.
@@ -50,7 +52,7 @@ Motion communicates placement and turns only. UI transitions run 160–260 ms us
 
 ## Difficulty and session curve
 
-The demo starts on the empty board so the first three moves teach one rule per turn. Moves 4–8 allow any empty cell touching the group. The final eight moves reward planning around the public goal and the known next tile. A complete match has 16 placements and is paced for 6–10 minutes, allowing about 22.5–37.5 seconds per turn. Three seeded public goals change scoring, while deterministic shuffled tile symbols change each rematch.
+The demo starts on the empty board so the first three moves teach one rule per turn. Moves 4–8 allow any empty cell touching the group. The final eight moves reward planning around the public goal and the known next tile. A complete match has 16 placements and is paced for 6–10 minutes. The measured regression uses one Sun/Moon pair every 45 seconds and records the browser’s real elapsed time. The end screen reports the observed duration. Three seeded public goals change scoring, while deterministic shuffled tile symbols change each rematch.
 
 ## Art direction and provenance
 

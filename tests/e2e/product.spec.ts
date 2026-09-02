@@ -98,12 +98,15 @@ test('@claim:invite-link copied from a demo-started room preserves its setup', a
 test('@claim:demo-sandbox keeps sample progress separate from a real local game', async ({ page }) => {
   await enterDemo(page);
   await page.evaluate(() => localStorage.setItem('real:game', JSON.stringify({ marker: 'unchanged' })));
+  await page.evaluate(() => localStorage.setItem('real:timing', JSON.stringify({ marker: 'unchanged' })));
   await page.locator('[data-cell]:not(:disabled)').first().click();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('demo:game') || '{}').placements?.length)).toBe(2);
   expect(await page.evaluate(() => localStorage.getItem('real:game'))).toContain('unchanged');
   await page.getByRole('button', { name: 'Reset demo' }).click();
   await expect(page.locator('.board-cell.tile')).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('real:game'))).toContain('unchanged');
+  expect(await page.evaluate(() => localStorage.getItem('real:timing'))).toContain('unchanged');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('demo:timing') || '{}').seed)).toBe('sample42');
 });
 
 test('@claim:local-recovery restores demo board and sound after reload', async ({ page }) => {
@@ -118,12 +121,15 @@ test('@claim:local-recovery restores demo board and sound after reload', async (
 
 test('@claim:privacy-approved-origins demo and online play contact only approved product origins', async ({ page }) => {
   const origins = new Set<string>();
+  const websocketOrigins = new Set<string>();
   page.on('request', (request) => origins.add(new URL(request.url()).origin));
+  page.on('websocket', (socket) => websocketOrigins.add(new URL(socket.url()).origin));
   await enterDemo(page);
   await page.locator('[data-cell]:not(:disabled)').first().click();
   await expect.poll(() => page.locator('.board-cell.tile').count()).toBe(2);
   await page.getByRole('button', { name: 'Start for real' }).click();
   await expect(page).toHaveURL(/\/play\?room=/);
+  await expect.poll(() => [...websocketOrigins]).toEqual(['ws://127.0.0.1:4174']);
   expect([...origins]).toEqual(['http://127.0.0.1:4173', 'http://127.0.0.1:4174']);
   await expect(page.locator('input[type="email"], [class*="advert"], [data-payment], [data-chat], [data-account]')).toHaveCount(0);
 });
@@ -162,16 +168,46 @@ test('@claim:non-color-players identifies Sun and Moon with different symbols an
   expect(new Set(borders)).toEqual(new Set(['solid', 'double']));
 });
 
-test('@claim:match-length completes the intended 6–10 minute, 16-turn pacing model', async ({ page }) => {
+test('@claim:match-length measures a complete match at the intended 6–10 minute pace', async ({ page }) => {
+  test.setTimeout(11 * 60 * 1000);
   await enterDemo(page);
   await expect(page.getByText('A match is designed for 6–10 minutes.')).toBeVisible();
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /6–10 minutes/);
-  await playDemoToEnd(page);
-  const turnCount = await page.locator('.board-cell.tile').count();
-  const deliberateTurnSeconds = { minimum: 22.5, maximum: 37.5 };
-  expect(turnCount * deliberateTurnSeconds.minimum / 60).toBe(6);
-  expect(turnCount * deliberateTurnSeconds.maximum / 60).toBe(10);
+  const startedAt = Date.now();
+  while (await page.locator('.board-cell.tile').count() < 16) {
+    const before = await page.locator('.board-cell.tile').count();
+    await page.waitForTimeout(45_000);
+    await page.locator('[data-cell]:not(:disabled)').first().click();
+    await expect.poll(() => page.locator('.board-cell.tile').count()).toBe(Math.min(before + 2, 16));
+  }
+  const measuredMinutes = (Date.now() - startedAt) / 60_000;
+  expect(measuredMinutes).toBeGreaterThanOrEqual(6);
+  expect(measuredMinutes).toBeLessThanOrEqual(10);
   await expect(page.getByText('Match complete')).toBeVisible();
+  await expect(page.locator('[data-match-duration]')).toHaveText(/6 min/);
+});
+
+test('@claim:local-pass-and-play alternates two local players, restores the board, ends, and restarts', async ({ page }) => {
+  await enterDemo(page);
+  await page.getByRole('link', { name: 'Play' }).click();
+  await expect(page).toHaveURL('/play');
+  await expect(page.locator('.player-score.sun')).toHaveClass(/active/);
+  await page.locator('[data-cell]:not(:disabled)').first().click();
+  await expect(page.locator('.player-score.moon')).toHaveClass(/active/);
+  await page.reload();
+  await expect(page.locator('.board-cell.tile')).toHaveCount(1);
+  while (await page.locator('.board-cell.tile').count() < 16) {
+    await page.locator('[data-cell]:not(:disabled)').first().click();
+  }
+  const state = await page.evaluate(() => JSON.parse(localStorage.getItem('real:game') || '{}'));
+  const expectedResult = state.scores.sun === state.scores.moon
+    ? `Draw at ${state.scores.sun} points each`
+    : `${state.scores.sun > state.scores.moon ? 'Sun' : 'Moon'} wins ${Math.max(state.scores.sun, state.scores.moon)}–${Math.min(state.scores.sun, state.scores.moon)}`;
+  await expect(page.getByText('Match complete')).toBeVisible();
+  await expect(page.getByRole('heading', { name: expectedResult })).toBeVisible();
+  await page.getByRole('button', { name: 'Play a rematch' }).click();
+  await expect(page.locator('.board-cell.tile')).toHaveCount(0);
+  await expect(page.locator('.player-score.sun')).toHaveClass(/active/);
 });
 
 test('@claim:touch-board places a demo lantern at 390px', async ({ browser }) => {
@@ -304,15 +340,28 @@ test('all interactive targets are at least 44 by 44 at mobile and desktop', asyn
 test('routes have accessible structure at desktop and 390px mobile', async ({ page }) => {
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
-    for (const path of ['/', '/demo', '/privacy', '/terms', '/missing-page']) {
+    for (const path of ['/', '/demo', '/privacy', '/terms', '/missing-page', '/404.html']) {
       await page.goto(path);
       await expect(page.locator('h1')).toHaveCount(1);
       await expect(page.locator('main')).toHaveCount(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${path} at ${viewport.width}px`).toBe(true);
       const results = await new AxeBuilder({ page }).analyze();
-      expect(results.violations.filter((item) => ['serious', 'critical'].includes(item.impact || ''))).toEqual([]);
+      expect(results.violations, `${path} at ${viewport.width}px`).toEqual([]);
     }
   }
+});
+
+test('the 390px cold first viewport shows game goal, score, turn, and board cells', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  for (const selector of ['.goal-card', '.score-row', '.turn-count', '.board-cell']) {
+    const box = await page.locator(selector).first().boundingBox();
+    expect(box, selector).not.toBeNull();
+    expect(box!.y, selector).toBeLessThan(844);
+    expect(box!.y + Math.min(box!.height, 44), selector).toBeLessThanOrEqual(844);
+  }
+  const board = await page.locator('.board').boundingBox();
+  expect(board!.y + board!.height).toBeLessThanOrEqual(844);
 });
 
 test('every internal link works and normal routes log no console errors', async ({ page, request }) => {
