@@ -14,7 +14,7 @@ Open `/demo`, or run the site and visit `http://localhost:5173/demo`. The sample
 
 Choose “Start an online game” and send the invite link to one friend. The private room expires two hours after creation. The room service validates the player, turn, board cell, and state version before saving a move. Refreshing either screen reconnects it with its local player key.
 
-The static site stays at `first-move-friends.sociobot.in`. Its product-owned room service is `first-move-friends-realtime.sociobot.in`. A durable fleet-managed volume mounts its SQLite data at `/data`.
+The static site stays at `first-move-friends.sociobot.in`. Its product-owned room service is `first-move-friends-realtime.sociobot.in`. A durable fleet-managed volume stores its SQLite snapshot at `/data`. The single replica uses a local transactional copy and replaces that snapshot after every room change.
 
 ## Play on one screen
 

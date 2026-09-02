@@ -2,6 +2,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
+import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { WebSocketServer } from 'ws';
 import { activePlayer, createGame, legalCells, placeTile } from './game.mjs';
@@ -9,6 +10,7 @@ import { activePlayer, createGame, legalCells, placeTile } from './game.mjs';
 const port = Number(process.env.PORT || 4174);
 const dataDir = process.env.DATA_DIR || '/data';
 const databaseFile = process.env.ROOM_DATABASE_FILE || 'rooms.sqlite';
+const sqliteWorkDir = process.env.SQLITE_WORK_DIR || dataDir;
 const ttlMs = Number(process.env.ROOM_TTL_MS || 2 * 60 * 60 * 1000);
 const cleanupMs = Number(process.env.ROOM_CLEANUP_MS || 10 * 60 * 1000);
 const rateWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
@@ -19,6 +21,13 @@ const allowedOrigins = new Set([
   'http://localhost:4173'
 ]);
 fs.mkdirSync(dataDir, { recursive: true });
+fs.mkdirSync(sqliteWorkDir, { recursive: true });
+const durableDatabasePath = path.join(dataDir, databaseFile);
+const workingDatabasePath = path.join(sqliteWorkDir, databaseFile);
+const mirrorsToDurableStorage = durableDatabasePath !== workingDatabasePath;
+if (mirrorsToDurableStorage && fs.existsSync(durableDatabasePath)) {
+  fs.copyFileSync(durableDatabasePath, workingDatabasePath);
+}
 const schema = `PRAGMA busy_timeout=5000;
   CREATE TABLE IF NOT EXISTS rooms (
     code TEXT PRIMARY KEY,
@@ -37,25 +46,17 @@ const schema = `PRAGMA busy_timeout=5000;
     request_count INTEGER NOT NULL
   );`;
 
-async function openDatabase() {
-  let lastError;
-  for (let attempt = 1; attempt <= 60; attempt += 1) {
-    const candidate = new DatabaseSync(`${dataDir}/${databaseFile}`);
-    try {
-      candidate.exec(schema);
-      return candidate;
-    } catch (error) {
-      lastError = error;
-      candidate.close();
-      if (!(error instanceof Error) || !error.message.includes('database is locked') || attempt === 60) break;
-      console.warn(`SQLite storage is busy; retrying startup (${attempt}/60).`);
-      await new Promise((resolve) => setTimeout(resolve, 2_000));
-    }
-  }
-  throw lastError;
+const db = new DatabaseSync(workingDatabasePath);
+db.exec(schema);
+
+function persistDatabase() {
+  if (!mirrorsToDurableStorage) return;
+  const nextPath = `${durableDatabasePath}.next-${process.pid}`;
+  fs.copyFileSync(workingDatabasePath, nextPath);
+  fs.renameSync(nextPath, durableDatabasePath);
 }
 
-const db = await openDatabase();
+persistDatabase();
 
 const findRoom = db.prepare('SELECT * FROM rooms WHERE code = ?');
 const insertRoom = db.prepare('INSERT INTO rooms(code, host_hash, state_json, created_at, updated_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)');
@@ -183,7 +184,7 @@ function checkedRoom(res, roomCode, origin) {
     return null;
   }
   if (room.expires_at <= Date.now()) {
-    deleteExpired.run(Date.now());
+    if (deleteExpired.run(Date.now()).changes) persistDatabase();
     send(res, 410, { error: 'This room has expired. Start a new game.' }, origin);
     return null;
   }
@@ -217,6 +218,7 @@ const server = http.createServer(async (req, res) => {
     const hostToken = token();
     const state = createGame(crypto.randomBytes(12).toString('hex'));
     insertRoom.run(roomCode, hash(hostToken), JSON.stringify(state), now, now, now + ttlMs);
+    persistDatabase();
     return send(res, 201, { ...publicRoom(findRoom.get(roomCode), 'sun'), token: hostToken }, origin);
   }
 
@@ -232,6 +234,7 @@ const server = http.createServer(async (req, res) => {
     if (room.guest_hash) return send(res, 409, { error: 'This room already has two players.' }, origin);
     const guestToken = token();
     seatGuest.run(hash(guestToken), Date.now(), roomCode);
+    persistDatabase();
     room = findRoom.get(roomCode);
     broadcast(roomCode);
     return send(res, 200, { ...publicRoom(room, 'moon'), token: guestToken }, origin);
@@ -252,6 +255,7 @@ const server = http.createServer(async (req, res) => {
     const next = placeTile(state, body.cell);
     const changed = updateState.run(JSON.stringify(next), Date.now(), roomCode, room.version);
     if (!changed.changes) return send(res, 409, { error: 'The room changed. Refreshing the board.' }, origin);
+    persistDatabase();
     room = findRoom.get(roomCode);
     broadcast(roomCode);
     return send(res, 200, publicRoom(room, seat), origin);
@@ -263,6 +267,7 @@ const server = http.createServer(async (req, res) => {
     if (state.status !== 'finished') return send(res, 409, { error: 'Finish this match before a rematch.' }, origin);
     const next = createGame(state.seed, state.rematch + 1);
     updateState.run(JSON.stringify(next), Date.now(), roomCode, room.version);
+    persistDatabase();
     room = findRoom.get(roomCode);
     broadcast(roomCode);
     return send(res, 200, publicRoom(room, seat), origin);
@@ -293,12 +298,18 @@ server.on('upgrade', (req, socket, head) => {
   });
 });
 
-setInterval(() => deleteExpired.run(Date.now()), cleanupMs).unref();
+setInterval(() => {
+  if (deleteExpired.run(Date.now()).changes) persistDatabase();
+}, cleanupMs).unref();
 server.listen(port, '0.0.0.0', () => console.log(`First Move Friends room service listening on ${port}`));
 
 function shutdown() {
   sockets.close();
-  server.close(() => { db.close(); process.exit(0); });
+  server.close(() => {
+    persistDatabase();
+    db.close();
+    process.exit(0);
+  });
 }
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);

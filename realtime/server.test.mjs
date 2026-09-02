@@ -115,10 +115,12 @@ test('rate buckets expire after their fixed window', async (t) => {
 
 test('@claim:sqlite-cleanup expired rooms are removed from SQLite', async (t) => {
   const { child, base, dataDir } = await startServer({ ROOM_TTL_MS: '40', ROOM_CLEANUP_MS: '20' });
-  t.after(() => child.kill('SIGTERM'));
+  t.after(() => { if (!child.killed) child.kill('SIGTERM'); });
   const created = await request(base, '/v1/rooms', { method: 'POST', body: {} });
   assert.equal(created.response.status, 201);
   await new Promise((resolve) => setTimeout(resolve, 100));
+  child.kill('SIGTERM');
+  await new Promise((resolve) => child.once('exit', resolve));
   const database = new DatabaseSync(path.join(dataDir, 'rooms.sqlite'), { readOnly: true });
   t.after(() => database.close());
   assert.equal(database.prepare('SELECT COUNT(*) AS count FROM rooms').get().count, 0);
@@ -126,7 +128,8 @@ test('@claim:sqlite-cleanup expired rooms are removed from SQLite', async (t) =>
 
 test('@claim:durable-room-restart an active room survives a room-service restart with the same data directory', async (t) => {
   const dataDir = await mkdtemp(path.join(tmpdir(), 'fmf-durable-room-'));
-  const first = await startServer({ DATA_DIR: dataDir });
+  const firstWorkDir = await mkdtemp(path.join(tmpdir(), 'fmf-working-room-'));
+  const first = await startServer({ DATA_DIR: dataDir, SQLITE_WORK_DIR: firstWorkDir });
   const created = await request(first.base, '/v1/rooms', { method: 'POST', body: {} });
   const joined = await request(first.base, `/v1/rooms/${created.json.code}/join`, { method: 'POST', body: {}, ip: '203.0.113.31' });
   assert.equal(joined.response.status, 200);
@@ -137,7 +140,8 @@ test('@claim:durable-room-restart an active room survives a room-service restart
   first.child.kill('SIGTERM');
   await new Promise((resolve) => first.child.once('exit', resolve));
 
-  const restarted = await startServer({ DATA_DIR: dataDir });
+  const secondWorkDir = await mkdtemp(path.join(tmpdir(), 'fmf-working-room-'));
+  const restarted = await startServer({ DATA_DIR: dataDir, SQLITE_WORK_DIR: secondWorkDir });
   t.after(() => restarted.child.kill('SIGTERM'));
   const restored = await request(restarted.base, `/v1/rooms/${created.json.code}`, { token: joined.json.token });
   assert.equal(restored.response.status, 200);
@@ -157,7 +161,8 @@ test('health and response headers expose the immutable realtime build identity',
   const dockerfile = await readFile(new URL('./Dockerfile', import.meta.url), 'utf8');
   assert.match(dockerfile, /ARG SOURCE_COMMIT=development/);
   assert.match(dockerfile, /SOURCE_COMMIT=\$SOURCE_COMMIT/);
-  assert.match(dockerfile, /ROOM_DATABASE_FILE=rooms-v4\.sqlite/);
+  assert.match(dockerfile, /SQLITE_WORK_DIR=\/tmp\/first-move-friends/);
+  assert.match(dockerfile, /ROOM_DATABASE_FILE=rooms-v5\.sqlite/);
 });
 
 test('static deployment config preserves a real 404 for unknown routes', async () => {
