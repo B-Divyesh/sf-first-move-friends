@@ -157,7 +157,7 @@ test('health and response headers expose the immutable realtime build identity',
   const dockerfile = await readFile(new URL('./Dockerfile', import.meta.url), 'utf8');
   assert.match(dockerfile, /ARG SOURCE_COMMIT=development/);
   assert.match(dockerfile, /SOURCE_COMMIT=\$SOURCE_COMMIT/);
-  assert.match(dockerfile, /ROOM_DATABASE_FILE=rooms-v2\.sqlite/);
+  assert.match(dockerfile, /ROOM_DATABASE_FILE=rooms-v3\.sqlite/);
 });
 
 test('static deployment config preserves a real 404 for unknown routes', async () => {
