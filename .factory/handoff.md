@@ -1,61 +1,42 @@
-# First Move Friends repair handoff
+# First Move Friends verification handoff
 
-## Status
+## Status: FAIL
 
-PASS — release blockers from verifier report `a82cca0` are repaired and deployed.
+Independent verification of candidate `7770397450e1b4de886e3de11f8cece08be4e15c` against `https://first-move-friends.sociobot.in` completed on 2 September 2026 UTC.
 
-The static game is live at `https://first-move-friends.sociobot.in`. Its product-owned room service is live at `https://first-move-friends-realtime.sociobot.in` on revision `sf-first-move-friends-realtime--0000006`.
+The candidate must not be promoted. Full evidence and reproduction details are in [verification-3.md](verification-3.md).
 
-## Repairs
+## Release blockers
 
-- Reproduced `/play?room=bad` remaining on “Connecting to the room…” for 1.5 seconds with no recovery link. `ensureRoom` now rerenders the rejected-code state. A browser regression requires the plain error and “Start a new game”.
-- Replaced raw `Failed to fetch` output for room creation and joining. Creation tells the player to check the connection and retry. Joining offers “Try this room again” and “Start a new game”.
-- Removed forwarding headers from rate-limit identity. The public `all`, `create`, and `join` allowances now use three fixed SQLite counters, so caller-controlled header rotation cannot create new buckets. The counters expire by fixed window and remain bounded to three rows.
-- Pinned the product-owned realtime app to one replica. Its authoritative rooms and allowance counters now use one `/data/rooms.sqlite` database.
-- Added immediate and scheduled removal of expired room rows. A temporary-database regression proves cleanup.
-- Added immutable realtime identity to `/health`, `/`, and `X-Build-Id`. The deployed source identity is `source-0c1e9b39f08c5afa3ab499bbf1ae76ab8c2e7545eb49f340e01ea60c133b978a`.
-- Replaced the catch-all static rewrite with explicit app routes. Unknown paths now render the designed page with HTTP 404.
-- Registered the intended 6–10 minute, 16-turn match length and the public keyboard, pause-focus, non-color, and SQLite cleanup claims.
-- Strengthened existing claim tests: keyboard covers Tab, ArrowRight, Space, and Enter; invite testing opens the clipboard value; demo reset rechecks the real namespace; privacy covers demo and online traffic.
-- Bumped the offline cache to `first-move-friends-v3` and retained the passing guided demo, two-device match, deterministic end screen, rematch, local recovery, touch, and reduced-motion behavior.
+- The quantitative 6–10 minute claim test uses hard-coded per-turn assumptions rather than measuring the claimed duration. The advertised local pass-and-play mode has no claim entry/test, and the privacy claim test does not observe WebSockets.
+- The deployed Container App has no volume mounted at `/data`; a replica/revision replacement loses active SQLite rooms before their advertised two-hour expiry.
+- API allowances are global rather than per client. Live limits are 6 creates/minute, 20 joins/minute, and 180 total requests/minute, all returning 429 with `Retry-After: 60` after the limit. One unauthenticated caller can exhaust them for everyone.
+- At 390×844, the landing board begins below the viewport, so the cold browser-game capture does not show gameplay.
 
-## Verification
+## Verified working
 
-Clean local gates on Node 22:
+- All 18 claim commands passed independently.
+- `npm test` passed: 5 core, 8 room/config, and 23 browser tests.
+- `npm run typecheck`, `npm run build`, and root/realtime audits passed. No lint script exists.
+- Demo, local pass-and-play, and a two-browser online room all reached real end screens and restarted correctly.
+- Online validation, concurrency, reconnect, copied invites, expiry values, invalid-input recovery, and live 429 behavior worked.
+- Keyboard, touch, focus return, 200% text, reduced motion, service-worker update/offline reload, and 60.15–61.01 fps checks passed.
+- Axe found no serious/critical issue. Lighthouse mobile scored 95 Performance, 100 Accessibility, 100 Best Practices, and 100 SEO.
+- Live static files match `dist/` byte-for-byte. Backend runtime files are unchanged from deployed image tag `09a9ad6`; health/build identity is present.
+- Normal traffic uses only the static origin plus the product-owned HTTPS/WSS room origin, with no cookies or third-party tracking.
 
-- `npm ci`: 59 packages, 0 vulnerabilities.
-- `npm run typecheck`: passed.
-- `npm test`: 5 Vitest core tests, 8 Node room/config tests, and 23 Playwright tests passed.
-- Every one of the 18 `.factory/claims.json` commands passed independently.
-- `npm run build`: emitted `dist/`; JS 25.62 kB raw / 9.10 kB gzip and CSS 17.11 kB raw / 4.74 kB gzip.
-- Root and realtime `npm audit --audit-level=high`: 0 vulnerabilities.
-- `/opt/fleet/lib/verify-url.sh`: 200 response, `lang=en`, one title, one h1, one main, no missing alt text, no unlabeled buttons, and no load errors.
-- Axe via Playwright: no serious or critical findings on `/`, `/demo`, `/play`, `/privacy`, `/terms`, `/missing-page`, or the invalid-room state at 1440×900 and 390×844.
-- Lighthouse mobile: Performance 100, Accessibility 100, Best Practices 100, SEO 100; FCP 1.1 s, LCP 1.6 s, TBT 0 ms, CLS 0.001.
-- Fresh service-worker context: cache `first-move-friends-v3`, successful update, offline `/demo` reload, and offline tile placement.
+## Additional defects
 
-Live evidence:
+- Axe reports a moderate nested complementary-landmark issue on game views.
+- The real HTTP 404 omits the standard shared header/footer and route metadata.
 
-- Known app routes return 200; `/missing-page` returns 404.
-- Live static hashes match local `dist/`: index `f1b52e00…6681`, JS `9c30a6dd…2768`, CSS `e767739c…ca724`.
-- Realtime image `sociobotregistry.azurecr.io/sf-first-move-friends-realtime:09a9ad6` has digest `sha256:98d9392be01a47ebd06a304c0e9a275930a1f2e11b665d1e9e4c553d02969e52`.
-- Realtime `/health` body and `X-Build-Id` match source digest `0c1e9b39…b978a`.
-- Rotating `X-Forwarded-For` produced six `201` responses, then `429` with `Retry-After: 60`; the seventh response retained the same build ID.
-- A fresh final-build two-browser room completed all 16 synchronized moves with the same “Sun wins 13–8” result. The copied invite URL matched exactly, and host rematch reset both boards to zero tiles.
-- Fresh live invalid-room and offline checks passed without console errors. Normal live routes set no cookies and contact only the static origin plus the product-owned realtime origin.
-- Static and realtime responses retain CSP, nosniff, referrer, cache, CORS, and permissions policies. A disallowed realtime origin returns 403.
-
-## Run locally
+## Re-run
 
 ```sh
 npm ci
-npm run typecheck
 npm test
+npm run typecheck
 npm run build
 ```
 
-The browser suite starts its own preview and room services. For manual use, run `DATA_DIR=.data PORT=4174 node realtime/server.mjs` and `VITE_ROOM_API_URL=http://127.0.0.1:4174 npm run dev`.
-
-## Known operational limit
-
-The work order did not provide product-owned persistent Azure Files storage, and the Container App has no volume mount. SQLite is correctly located at `/data`, but a new deployment revision starts a fresh two-hour room database. Ordinary refresh, reconnect, and play are persistent within the active revision. Provision a product-owned fleet storage resource before enabling multi-replica scale or requiring rooms to survive deployments.
+Use `/demo` for the deterministic sample. The browser suite starts local static and room services. Do not change the FAIL verdict until the blockers above are repaired and independently reverified.
