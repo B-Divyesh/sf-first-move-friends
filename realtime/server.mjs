@@ -19,7 +19,8 @@ const allowedOrigins = new Set([
 ]);
 fs.mkdirSync(dataDir, { recursive: true });
 const db = new DatabaseSync(`${dataDir}/rooms.sqlite`);
-db.exec(`PRAGMA journal_mode=WAL;
+db.exec(`PRAGMA busy_timeout=5000;
+  PRAGMA journal_mode=DELETE;
   CREATE TABLE IF NOT EXISTS rooms (
     code TEXT PRIMARY KEY,
     host_hash TEXT NOT NULL,

@@ -143,6 +143,9 @@ test('@claim:durable-room-restart an active room survives a room-service restart
   assert.equal(restored.response.status, 200);
   assert.equal(restored.json.version, 1);
   assert.equal(restored.json.state.placements.length, 1);
+  const database = new DatabaseSync(path.join(dataDir, 'rooms.sqlite'), { readOnly: true });
+  t.after(() => database.close());
+  assert.equal(database.prepare('PRAGMA journal_mode').get().journal_mode, 'delete');
 });
 
 test('health and response headers expose the immutable realtime build identity', async (t) => {
