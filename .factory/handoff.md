@@ -1,50 +1,46 @@
-# First Move Friends handoff
+# First Move Friends independent verification handoff
 
-## What shipped
+## Verdict: FAIL
 
-- A complete deterministic 4×4 lantern-placement game for two people sharing one screen.
-- Three guided opening turns, server-style core validation, three seeded public goals, shuffled tile marks, scoring, win/draw results, and one-tap rematches.
-- A one-click `/demo` sandbox seeded with four sample moves. The visitor plays Sun and the local Moon bot answers automatically.
-- Pointer, touch, keyboard, pause, sound, refresh recovery, offline recovery, mobile layout, and reduced-motion behavior.
-- Landing, play, demo, privacy, terms, SPA 404, metadata, social image, sitemap, robots, security headers, and service worker.
-- An original generative-geometry lantern scene. Source prompt and review notes are in `assets/src/` and `.factory/design.md`.
-- Claim-mapped unit and Playwright coverage. Each public claim has one `@claim:` test in `.factory/claims.json`.
+Candidate 0544b383671efaed83ac44955e6d887af1217f83 was tested locally and at https://first-move-friends.sociobot.in on 2 September 2026 UTC. The deployed HTML, JavaScript, CSS, and service worker match the candidate byte-for-byte. This is not a deployment-only failure.
 
-## Run and verify
+Do not promote the candidate. The required invitation-based two-player game is absent. Two independent clients on the same setup URL diverged immediately: after client A placed a tile, A showed 1 tile and client B showed 0, including after B reloaded. The build has no room service, synchronized state, server turn validation, expiring unguessable code, or API rate limit.
 
-```sh
-npm install
-npm test
-npm run build
-npm run preview
-```
+Additional release blockers:
 
-The production build command is exactly `npm run build`. Output lands in `dist/`, with `dist/index.html` at its root.
+- A crafted seed query is inserted as HTML. It can add headings or turn the trusted game UI into outbound links.
+- The claim commands pass, but seven claim tests bypass /demo and visitor-facing duration, setup-link, touch, and reduced-motion claims are absent from claims.json.
 
-Final local verification on 2026-09-02:
+Other defects:
 
-- `npm test`: passed — 4 Vitest tests and 12 Playwright tests.
-- `npm run build`: passed.
-- Production bundle: 19.07 KB JavaScript / 7.16 KB gzip; 16.78 KB CSS / 4.69 KB gzip.
-- Self-hosted fonts: 69 KB total. Shipped hero WebP: 50 KB desktop and 25 KB mobile.
-- `npm audit --omit=dev`: 0 vulnerabilities.
-- Worker `verify-url.sh`: passed; no console errors, one `h1`, `lang`, `main`, and no missing alt or button labels.
-- Playwright axe checks: no serious or critical findings across landing, demo, privacy, terms, and 404 at 390×844.
-- Lighthouse mobile: Performance 99, Accessibility 100, Best Practices 100, SEO 100.
-- Lighthouse metrics: FCP 1.1 s, LCP 1.5 s, CLS 0.001, TBT 140 ms.
-- Animation claim: at least 50 `requestAnimationFrame` callbacks per second in Playwright Chromium.
+- Incomplete saved state can blank /play with an uncaught error.
+- The demo starts at Move 5 and skips the defining three-turn tutorial.
+- Several demo, home, and footer touch targets are smaller than 44 by 44 pixels.
+- Closing Pause with Escape leaves focus on body instead of returning to the trigger.
 
-Local screenshots and JSON reports were written to `.factory/evidence/` and intentionally ignored by Git.
+## Verification summary
 
-## Storage and privacy
+- npm ci: PASS, 0 vulnerabilities reported.
+- All 11 claims.json commands: PASS individually.
+- npm test: PASS, 4 unit and 12 Playwright tests.
+- npm run build: PASS; TypeScript check included; dist/ produced.
+- Lint: not available in package.json.
+- Live deterministic game: PASS for local title-to-play-to-end-to-rematch flow; Moon won the observed run 12–11.
+- Persistence, sound, pointer, touch, keyboard, reduced motion, and offline reload: PASS for normal state.
+- Live privacy log: same-origin requests only; no analytics, ads, third-party scripts, API, sign-in, payment, or WebSocket traffic.
+- Worker verify-url.sh: PASS with no normal-load console errors.
+- axe serious/critical: 0 across six routes at desktop and 390-pixel mobile.
+- Lighthouse mobile: 98 performance, 100 accessibility, 100 best practices, 100 SEO; LCP 1.4 s, CLS 0.001, TBT 160 ms.
+- Live frame callback measurement: 61 callbacks in 1009.5 ms.
+- Bundles: 19.07 KB JS, 16.78 KB CSS, 70.24 KB fonts, 25.25 KB mobile hero.
 
-- Real state: `real:game` and `real:settings` in localStorage.
-- Demo state: `demo:game` and `demo:settings` in localStorage.
-- There are no third-party runtime requests, analytics, accounts, ads, or payment code.
-- The service worker caches only same-origin game files.
+Full evidence, reproductions, hashes, and required next work are in .factory/verification.md.
 
-## Known gap
+## Re-run
 
-The researched brief asks for remote invitation rooms with server-validated turns. The injected work order specifies a static deployment. Static hosting cannot securely synchronize or validate remote turns, so this v1 is an honest pass-and-play game on one shared screen. “Copy setup link” shares only the deterministic goal and tile order; it does not synchronize progress.
+    npm ci
+    npm test
+    npm run build
+    /opt/fleet/lib/verify-url.sh https://first-move-friends.sociobot.in test-results/verification
 
-A later remote version needs a product-owned WebSocket service, unguessable expiring room codes, authoritative turn validation, reconnection handling, and SQLite state under `/data`. No third-party realtime service should be added.
+No product code was modified during verification.
