@@ -1,0 +1,79 @@
+[
+  {
+    "id": "complete-match",
+    "claim": "The match ends after all 16 lanterns are placed and names a winner or draw.",
+    "where": "landing how-it-works section and game end screen",
+    "test": "npm run test:e2e -- --grep @claim:complete-match",
+    "sandbox": "fresh browser context; play the first validated legal cell for 16 turns and inspect the end screen"
+  },
+  {
+    "id": "guided-opening",
+    "claim": "The first three turns mark only legal cells and teach one instruction at a time.",
+    "where": "landing preview and game turn panel",
+    "test": "npm run test:unit -- --testNamePattern @claim:guided-opening",
+    "sandbox": "fresh deterministic game with no stored progress"
+  },
+  {
+    "id": "two-players",
+    "claim": "Two players share one screen without an account.",
+    "where": "landing facts and play page",
+    "test": "npm run test:unit -- --testNamePattern @claim:two-players",
+    "sandbox": "fresh deterministic game; assert alternating Sun and Moon turns"
+  },
+  {
+    "id": "rematch",
+    "claim": "A rematch starts an empty board with a different shuffled setup.",
+    "where": "game end screen",
+    "test": "npm run test:e2e -- --grep @claim:rematch",
+    "sandbox": "fresh browser context; complete a match, choose rematch, and compare the saved setup"
+  },
+  {
+    "id": "demo-sandbox",
+    "claim": "Demo progress is stored separately and reset does not change a real game.",
+    "where": "demo banner and privacy page",
+    "test": "npm run test:e2e -- --grep @claim:demo-sandbox",
+    "sandbox": "fresh browser context with both real: and demo: localStorage namespaces"
+  },
+  {
+    "id": "local-recovery",
+    "claim": "The current board and sound choice are restored after a refresh.",
+    "where": "pause dialog and privacy page",
+    "test": "npm run test:e2e -- --grep @claim:local-recovery",
+    "sandbox": "fresh browser context; place one tile, mute, and reload"
+  },
+  {
+    "id": "privacy-same-origin",
+    "claim": "The game has no analytics, advertising, or third-party scripts.",
+    "where": "landing limits and privacy page",
+    "test": "npm run test:e2e -- --grep @claim:privacy-same-origin",
+    "sandbox": "record every request during a demo turn and require the product origin only"
+  },
+  {
+    "id": "free-play",
+    "claim": "The game is free to play.",
+    "where": "landing facts and terms page",
+    "test": "npm run test:e2e -- --grep @claim:free-play",
+    "sandbox": "fresh landing page; assert the playable demo exists and no purchase control exists"
+  },
+  {
+    "id": "keyboard-board",
+    "claim": "The board works with keyboard input.",
+    "where": "README controls",
+    "test": "npm run test:e2e -- --grep @claim:keyboard-board",
+    "sandbox": "fresh game; focus a legal cell and place with Enter"
+  },
+  {
+    "id": "offline-reload",
+    "claim": "The saved game works offline after the first visit.",
+    "where": "landing facts, offline banner, and README",
+    "test": "npm run test:e2e -- --grep @claim:offline-reload",
+    "sandbox": "dedicated browser context; load and control the service worker, go offline, reload, and place a tile"
+  },
+  {
+    "id": "frame-rate",
+    "claim": "The game renders at 50 or more frames per second in the desktop Chromium sandbox.",
+    "where": ".factory/handoff.md",
+    "test": "npm run test:e2e -- --grep @claim:frame-rate",
+    "sandbox": "Playwright Chromium; count requestAnimationFrame callbacks for one second"
+  }
+]
