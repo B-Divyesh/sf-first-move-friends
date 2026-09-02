@@ -9,7 +9,7 @@ import { DatabaseSync } from 'node:sqlite';
 const origin = 'http://127.0.0.1:4173';
 
 async function startServer(extra = {}) {
-  const dataDir = await mkdtemp(path.join(tmpdir(), 'fmf-rooms-'));
+  const dataDir = extra.DATA_DIR || await mkdtemp(path.join(tmpdir(), 'fmf-rooms-'));
   const port = String(4200 + Math.floor(Math.random() * 500));
   const child = spawn(process.execPath, ['server.mjs'], {
     cwd: new URL('.', import.meta.url),
@@ -80,6 +80,20 @@ test('rotating caller-controlled forwarding headers cannot bypass 429', async (t
   }
   assert.deepEqual(responses.map((response) => response.status), [201, 201, 201, 201, 201, 201, 429]);
   assert.equal(responses.at(-1).headers.get('retry-after'), '60');
+});
+
+test('separate service replicas share the same SQLite allowance', async (t) => {
+  const dataDir = await mkdtemp(path.join(tmpdir(), 'fmf-shared-rate-'));
+  const first = await startServer({ DATA_DIR: dataDir });
+  const second = await startServer({ DATA_DIR: dataDir });
+  t.after(() => first.child.kill('SIGTERM'));
+  t.after(() => second.child.kill('SIGTERM'));
+  const responses = [];
+  for (let count = 0; count < 7; count += 1) {
+    const base = count % 2 === 0 ? first.base : second.base;
+    responses.push((await request(base, '/v1/rooms', { method: 'POST', body: {}, ip: `203.0.113.${count + 1}` })).response.status);
+  }
+  assert.deepEqual(responses, [201, 201, 201, 201, 201, 201, 429]);
 });
 
 test('rate buckets expire after their fixed window', async (t) => {

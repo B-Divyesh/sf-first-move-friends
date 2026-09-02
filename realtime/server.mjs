@@ -10,7 +10,6 @@ const dataDir = process.env.DATA_DIR || '/data';
 const ttlMs = Number(process.env.ROOM_TTL_MS || 2 * 60 * 60 * 1000);
 const cleanupMs = Number(process.env.ROOM_CLEANUP_MS || 10 * 60 * 1000);
 const rateWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
-const maxBuckets = Math.max(10, Number(process.env.RATE_LIMIT_MAX_BUCKETS || 5_000));
 const buildId = process.env.BUILD_ID || 'development';
 const allowedOrigins = new Set([
   'https://first-move-friends.sociobot.in',
@@ -30,16 +29,25 @@ db.exec(`PRAGMA journal_mode=WAL;
     updated_at INTEGER NOT NULL,
     expires_at INTEGER NOT NULL
   );
-  CREATE INDEX IF NOT EXISTS rooms_expiry ON rooms(expires_at);`);
+  CREATE INDEX IF NOT EXISTS rooms_expiry ON rooms(expires_at);
+  CREATE TABLE IF NOT EXISTS request_limits (
+    bucket_key TEXT PRIMARY KEY,
+    window_start INTEGER NOT NULL,
+    request_count INTEGER NOT NULL
+  );`);
 
 const findRoom = db.prepare('SELECT * FROM rooms WHERE code = ?');
 const insertRoom = db.prepare('INSERT INTO rooms(code, host_hash, state_json, created_at, updated_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)');
 const seatGuest = db.prepare('UPDATE rooms SET guest_hash = ?, updated_at = ? WHERE code = ? AND guest_hash IS NULL');
 const updateState = db.prepare('UPDATE rooms SET state_json = ?, version = version + 1, updated_at = ? WHERE code = ? AND version = ?');
 const deleteExpired = db.prepare('DELETE FROM rooms WHERE expires_at <= ?');
+const upsertLimit = db.prepare(`INSERT INTO request_limits(bucket_key, window_start, request_count) VALUES (?, ?, 1)
+  ON CONFLICT(bucket_key) DO UPDATE SET
+    request_count = CASE WHEN window_start = excluded.window_start THEN request_count + 1 ELSE 1 END,
+    window_start = excluded.window_start`);
+const findLimit = db.prepare('SELECT request_count FROM request_limits WHERE bucket_key = ?');
+const deleteOldLimits = db.prepare('DELETE FROM request_limits WHERE window_start < ?');
 const clients = new Map();
-const buckets = new Map();
-let lastBucketSweep = 0;
 
 function hash(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -87,29 +95,20 @@ function send(res, status, body, origin, extra = {}) {
   res.end(JSON.stringify(body));
 }
 
-function clientIp(req) {
-  return String(req.socket.remoteAddress || 'unknown').slice(0, 128);
-}
-
-function rateLimited(req, group, limit) {
+function rateLimited(group, limit) {
   const now = Date.now();
-  if (now - lastBucketSweep >= rateWindowMs) {
-    for (const [bucketKey, bucket] of buckets) {
-      if (bucket.resetAt <= now) buckets.delete(bucketKey);
-    }
-    lastBucketSweep = now;
+  const windowStart = Math.floor(now / rateWindowMs) * rateWindowMs;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    upsertLimit.run(group, windowStart);
+    deleteOldLimits.run(windowStart - rateWindowMs);
+    const count = findLimit.get(group).request_count;
+    db.exec('COMMIT');
+    return count > limit;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
   }
-  let key = `${group}:${clientIp(req)}`;
-  if (!buckets.has(key) && buckets.size >= maxBuckets) {
-    key = `${group}:overflow`;
-    if (!buckets.has(key)) buckets.delete(buckets.keys().next().value);
-  }
-  const current = buckets.get(key);
-  const bucket = !current || current.resetAt <= now ? { count: 0, resetAt: now + rateWindowMs } : current;
-  bucket.count += 1;
-  buckets.delete(key);
-  buckets.set(key, bucket);
-  return bucket.count > limit;
 }
 
 async function jsonBody(req) {
@@ -170,13 +169,13 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(204, headers(origin));
     return res.end();
   }
-  if (rateLimited(req, 'all', 180)) return send(res, 429, { error: 'Too many requests. Wait one minute.' }, origin, { 'Retry-After': '60' });
+  if (rateLimited('all', 180)) return send(res, 429, { error: 'Too many requests. Wait one minute.' }, origin, { 'Retry-After': '60' });
   const url = new URL(req.url || '/', 'http://localhost');
   if (req.method === 'GET' && url.pathname === '/') return send(res, 200, { service: 'First Move Friends room service', buildId }, origin);
   if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true, buildId }, origin);
 
   if (req.method === 'POST' && url.pathname === '/v1/rooms') {
-    if (rateLimited(req, 'create', 6)) return send(res, 429, { error: 'Too many rooms created. Wait one minute.' }, origin, { 'Retry-After': '60' });
+    if (rateLimited('create', 6)) return send(res, 429, { error: 'Too many rooms created. Wait one minute.' }, origin, { 'Retry-After': '60' });
     const now = Date.now();
     let roomCode = code();
     while (findRoom.get(roomCode)) roomCode = code();
@@ -194,7 +193,7 @@ const server = http.createServer(async (req, res) => {
   if (!room) return;
 
   if (req.method === 'POST' && action === 'join') {
-    if (rateLimited(req, 'join', 20)) return send(res, 429, { error: 'Too many join attempts. Wait one minute.' }, origin, { 'Retry-After': '60' });
+    if (rateLimited('join', 20)) return send(res, 429, { error: 'Too many join attempts. Wait one minute.' }, origin, { 'Retry-After': '60' });
     if (room.guest_hash) return send(res, 409, { error: 'This room already has two players.' }, origin);
     const guestToken = token();
     seatGuest.run(hash(guestToken), Date.now(), roomCode);
