@@ -16,4 +16,4 @@ Demo progress uses `localStorage` key `demo:game`; its sound choice uses `demo:s
 
 ## Verification
 
-Every command in `.factory/claims.json` starts at `/demo` in a fresh browser context. Run all deterministic, room-service, and browser checks with `npm test`.
+Browser claim commands start at `/demo` in a fresh context. The SQLite cleanup claim uses a fresh temporary database. Run all deterministic, room-service, and browser checks with `npm test`.

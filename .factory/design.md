@@ -50,7 +50,7 @@ Motion communicates placement and turns only. UI transitions run 160–260 ms us
 
 ## Difficulty and session curve
 
-The demo starts on the empty board so the first three moves teach one rule per turn. Moves 4–8 allow any empty cell touching the group. The final eight moves reward planning around the public goal and the known next tile. A complete match has 16 placements. Three seeded public goals change scoring, while deterministic shuffled tile symbols change each rematch.
+The demo starts on the empty board so the first three moves teach one rule per turn. Moves 4–8 allow any empty cell touching the group. The final eight moves reward planning around the public goal and the known next tile. A complete match has 16 placements and is paced for 6–10 minutes, allowing about 22.5–37.5 seconds per turn. Three seeded public goals change scoring, while deterministic shuffled tile symbols change each rematch.
 
 ## Art direction and provenance
 

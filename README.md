@@ -4,6 +4,8 @@ Play a guided 4×4 lantern duel with a friend on one screen or two.
 
 First Move Friends is a free two-player browser game. Place 16 lanterns around one public goal. The first three turns mark useful cells, so new players learn during the match. Online games use a private expiring room; local games work on one shared screen.
 
+Intended session length: 6–10 minutes for one 16-turn match. This allows about 22.5–37.5 seconds for each turn.
+
 ## Try the demo
 
 Open `/demo`, or run the site and visit `http://localhost:5173/demo`. The sample begins at the first tutorial move. You play Sun while the browser makes Moon’s validated move. The banner remains visible, and demo progress uses only `demo:` storage keys.
@@ -28,6 +30,7 @@ Requires Node.js 22 or newer.
 ```sh
 npm ci
 npm test
+npm run typecheck
 npm run build
 npm run preview
 ```
@@ -39,6 +42,10 @@ DATA_DIR=.data PORT=4174 node realtime/server.mjs
 ```
 
 `npm test` runs deterministic core tests, room API integration tests, and Playwright browser tests. The production build writes the static artifact to `dist/`.
+
+## Deploy
+
+Deploy `dist/` to the product’s static host. Build the product-owned room service from the repository root with `realtime/Dockerfile`. Pass an immutable source or commit identifier as the `BUILD_ID` build argument. The factory owns deployment; this repository does not change DNS or shared infrastructure.
 
 ## Privacy and accessibility
 

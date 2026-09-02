@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { readFile, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import test from 'node:test';
+import { DatabaseSync } from 'node:sqlite';
 
 const origin = 'http://127.0.0.1:4173';
 
@@ -18,20 +19,21 @@ async function startServer(extra = {}) {
   const base = `http://127.0.0.1:${port}`;
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
-      if ((await fetch(`${base}/health`)).ok) return { child, base };
+      if ((await fetch(`${base}/health`)).ok) return { child, base, dataDir };
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 40));
   }
   throw new Error('Room test server did not start.');
 }
 
-async function request(base, pathname, { token, body, ip = '198.51.100.10', method = 'GET' } = {}) {
+async function request(base, pathname, { token, body, ip = '198.51.100.10', trustedIp, method = 'GET' } = {}) {
   const response = await fetch(`${base}${pathname}`, {
     method,
     headers: {
       Origin: origin,
       'Content-Type': 'application/json',
       'X-Forwarded-For': ip,
+      ...(trustedIp ? { 'X-Envoy-External-Address': trustedIp } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
     body: body === undefined ? undefined : JSON.stringify(body)
@@ -70,12 +72,71 @@ test('rooms use unguessable expiring codes and authoritative synchronized turns'
   assert.equal(expired.response.status, 410);
 });
 
-test('room creation is rate limited', async (t) => {
-  const { child, base } = await startServer();
+test('rotating caller-controlled forwarding headers cannot bypass 429', async (t) => {
+  const { child, base } = await startServer({ TRUSTED_CLIENT_IP_HEADER: 'x-envoy-external-address' });
   t.after(() => child.kill('SIGTERM'));
-  const statuses = [];
+  const responses = [];
   for (let count = 0; count < 7; count += 1) {
-    statuses.push((await request(base, '/v1/rooms', { method: 'POST', body: {}, ip: '203.0.113.44' })).response.status);
+    responses.push((await request(base, '/v1/rooms', {
+      method: 'POST', body: {}, ip: `203.0.113.${count + 1}`, trustedIp: '198.51.100.77'
+    })).response);
   }
-  assert.deepEqual(statuses, [201, 201, 201, 201, 201, 201, 429]);
+  assert.deepEqual(responses.map((response) => response.status), [201, 201, 201, 201, 201, 201, 429]);
+  assert.equal(responses.at(-1).headers.get('retry-after'), '60');
+});
+
+test('rate buckets expire after their fixed window', async (t) => {
+  const { child, base } = await startServer({ RATE_LIMIT_WINDOW_MS: '250' });
+  t.after(() => child.kill('SIGTERM'));
+  for (let count = 0; count < 6; count += 1) {
+    assert.equal((await request(base, '/v1/rooms', { method: 'POST', body: {} })).response.status, 201);
+  }
+  assert.equal((await request(base, '/v1/rooms', { method: 'POST', body: {} })).response.status, 429);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.equal((await request(base, '/v1/rooms', { method: 'POST', body: {} })).response.status, 201);
+});
+
+test('@claim:sqlite-cleanup expired rooms are removed from SQLite', async (t) => {
+  const { child, base, dataDir } = await startServer({ ROOM_TTL_MS: '40', ROOM_CLEANUP_MS: '20' });
+  t.after(() => child.kill('SIGTERM'));
+  const created = await request(base, '/v1/rooms', { method: 'POST', body: {} });
+  assert.equal(created.response.status, 201);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const database = new DatabaseSync(path.join(dataDir, 'rooms.sqlite'), { readOnly: true });
+  t.after(() => database.close());
+  assert.equal(database.prepare('SELECT COUNT(*) AS count FROM rooms').get().count, 0);
+});
+
+test('health and response headers expose the immutable realtime build identity', async (t) => {
+  const { child, base } = await startServer({ BUILD_ID: 'repair-test-build' });
+  t.after(() => child.kill('SIGTERM'));
+  const response = await fetch(`${base}/health`);
+  assert.equal(response.headers.get('x-build-id'), 'repair-test-build');
+  assert.deepEqual(await response.json(), { ok: true, buildId: 'repair-test-build' });
+});
+
+test('static deployment config preserves a real 404 for unknown routes', async () => {
+  const config = JSON.parse(await readFile(new URL('../public/staticwebapp.config.json', import.meta.url), 'utf8'));
+  assert.equal(config.navigationFallback, undefined);
+  assert.deepEqual(config.responseOverrides['404'], { rewrite: '/404.html' });
+  for (const route of ['/demo', '/play', '/privacy', '/terms']) {
+    assert.ok(config.routes.some((entry) => entry.route === route && entry.rewrite === '/index.html' && entry.statusCode === undefined));
+  }
+});
+
+test('every registered claim has exactly one tagged regression and no tag is unregistered', async () => {
+  const claims = JSON.parse(await readFile(new URL('../.factory/claims.json', import.meta.url), 'utf8'));
+  const sources = await Promise.all([
+    readFile(new URL('../tests/e2e/product.spec.ts', import.meta.url), 'utf8'),
+    readFile(new URL('./server.test.mjs', import.meta.url), 'utf8')
+  ]);
+  const tags = sources.join('\n').match(/@claim:[a-z0-9-]+/g) || [];
+  const ids = claims.map((claim) => claim.id);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const claim of claims) {
+    const tag = `@claim:${claim.id}`;
+    assert.equal(tags.filter((candidate) => candidate === tag).length, 1, tag);
+    assert.match(claim.test, new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  assert.deepEqual([...new Set(tags.map((tag) => tag.slice('@claim:'.length)))].sort(), [...ids].sort());
 });

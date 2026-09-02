@@ -8,6 +8,11 @@ import { activePlayer, createGame, legalCells, placeTile } from './game.mjs';
 const port = Number(process.env.PORT || 4174);
 const dataDir = process.env.DATA_DIR || '/data';
 const ttlMs = Number(process.env.ROOM_TTL_MS || 2 * 60 * 60 * 1000);
+const cleanupMs = Number(process.env.ROOM_CLEANUP_MS || 10 * 60 * 1000);
+const rateWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
+const maxBuckets = Math.max(10, Number(process.env.RATE_LIMIT_MAX_BUCKETS || 5_000));
+const trustedClientIpHeader = process.env.TRUSTED_CLIENT_IP_HEADER || '';
+const buildId = process.env.BUILD_ID || 'development';
 const allowedOrigins = new Set([
   'https://first-move-friends.sociobot.in',
   'http://127.0.0.1:4173',
@@ -35,6 +40,7 @@ const updateState = db.prepare('UPDATE rooms SET state_json = ?, version = versi
 const deleteExpired = db.prepare('DELETE FROM rooms WHERE expires_at <= ?');
 const clients = new Map();
 const buckets = new Map();
+let lastBucketSweep = 0;
 
 function hash(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
@@ -64,6 +70,7 @@ function headers(origin) {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff',
+    'X-Build-Id': buildId,
     'Referrer-Policy': 'no-referrer',
     'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'"
   };
@@ -82,17 +89,29 @@ function send(res, status, body, origin, extra = {}) {
 }
 
 function clientIp(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  return forwarded || req.socket.remoteAddress || 'unknown';
+  const ingressIdentity = trustedClientIpHeader ? String(req.headers[trustedClientIpHeader] || '').trim() : '';
+  return (ingressIdentity || req.socket.remoteAddress || 'unknown').slice(0, 128);
 }
 
 function rateLimited(req, group, limit) {
   const now = Date.now();
-  const key = `${group}:${clientIp(req)}`;
-  const recent = (buckets.get(key) || []).filter((time) => now - time < 60_000);
-  recent.push(now);
-  buckets.set(key, recent);
-  return recent.length > limit;
+  if (now - lastBucketSweep >= rateWindowMs) {
+    for (const [bucketKey, bucket] of buckets) {
+      if (bucket.resetAt <= now) buckets.delete(bucketKey);
+    }
+    lastBucketSweep = now;
+  }
+  let key = `${group}:${clientIp(req)}`;
+  if (!buckets.has(key) && buckets.size >= maxBuckets) {
+    key = `${group}:overflow`;
+    if (!buckets.has(key)) buckets.delete(buckets.keys().next().value);
+  }
+  const current = buckets.get(key);
+  const bucket = !current || current.resetAt <= now ? { count: 0, resetAt: now + rateWindowMs } : current;
+  bucket.count += 1;
+  buckets.delete(key);
+  buckets.set(key, bucket);
+  return bucket.count > limit;
 }
 
 async function jsonBody(req) {
@@ -133,6 +152,7 @@ function checkedRoom(res, roomCode, origin) {
     return null;
   }
   if (room.expires_at <= Date.now()) {
+    deleteExpired.run(Date.now());
     send(res, 410, { error: 'This room has expired. Start a new game.' }, origin);
     return null;
   }
@@ -154,8 +174,8 @@ const server = http.createServer(async (req, res) => {
   }
   if (rateLimited(req, 'all', 180)) return send(res, 429, { error: 'Too many requests. Wait one minute.' }, origin, { 'Retry-After': '60' });
   const url = new URL(req.url || '/', 'http://localhost');
-  if (req.method === 'GET' && url.pathname === '/') return send(res, 200, { service: 'First Move Friends room service' }, origin);
-  if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true }, origin);
+  if (req.method === 'GET' && url.pathname === '/') return send(res, 200, { service: 'First Move Friends room service', buildId }, origin);
+  if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, { ok: true, buildId }, origin);
 
   if (req.method === 'POST' && url.pathname === '/v1/rooms') {
     if (rateLimited(req, 'create', 6)) return send(res, 429, { error: 'Too many rooms created. Wait one minute.' }, origin, { 'Retry-After': '60' });
@@ -241,7 +261,7 @@ server.on('upgrade', (req, socket, head) => {
   });
 });
 
-setInterval(() => deleteExpired.run(Date.now()), 10 * 60 * 1000).unref();
+setInterval(() => deleteExpired.run(Date.now()), cleanupMs).unref();
 server.listen(port, '0.0.0.0', () => console.log(`First Move Friends room service listening on ${port}`));
 
 function shutdown() {

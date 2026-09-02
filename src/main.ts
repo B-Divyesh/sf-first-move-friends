@@ -48,7 +48,7 @@ const ROUTE_TITLES: Record<string, string> = {
 
 const META_DESCRIPTIONS: Record<string, string> = {
   '/': 'Play a guided 4×4 lantern duel with a friend on one screen or two connected screens.',
-  '/demo': 'Try a guided First Move Friends match from the first teaching move against an automatic Moon player.',
+  '/demo': 'Try a guided First Move Friends match from the first teaching move against automatic Moon in 6–10 minutes.',
   '/play': 'Play a private two-player lantern tile match on one screen or two connected screens.',
   '/privacy': 'Read how First Move Friends stores game progress on your device.',
   '/terms': 'Read the terms for playing First Move Friends.',
@@ -294,7 +294,8 @@ function roomTokenKey(code: string): string {
 
 function roomLoadingPage(code: string): string {
   const message = roomError || 'Connecting to the room…';
-  return `${header()}<main id="main" class="play-page room-state"><span class="eyebrow">Online room</span><h1 tabindex="-1">Join a lantern duel</h1><p role="status">${escapeText(message)}</p>${roomError ? '<a class="button primary" href="/" data-route>Start a new game</a>' : ''}</main>${footer()}`;
+  const retry = roomError === 'The online room could not be reached. Check your connection, then try this room again.';
+  return `${header()}<main id="main" class="play-page room-state"><span class="eyebrow">Online room</span><h1 tabindex="-1">Join a lantern duel</h1><p role="status">${escapeText(message)}</p>${retry ? '<button class="button primary" type="button" data-action="retry-room">Try this room again</button><a class="text-button" href="/" data-route>Start a new game</a>' : roomError ? '<a class="button primary" href="/" data-route>Start a new game</a>' : ''}</main>${footer()}`;
 }
 
 function playPage(demo: boolean): string {
@@ -322,7 +323,7 @@ function playPage(demo: boolean): string {
   return `${demo ? demoBanner() : ''}${header()}
     <main id="main" class="play-page">
       <div class="play-heading">
-        <div><span class="eyebrow">${demo ? 'Sample match' : `Setup ${escapeText(state.seed.toUpperCase())}`}</span><h1 tabindex="-1">${headline}</h1><p>${demo ? 'You place Sun lanterns. Moon answers with an automatic move.' : 'Pass this screen between two players. The board teaches the opening moves.'}</p></div>
+        <div><span class="eyebrow">${demo ? 'Sample match' : `Setup ${escapeText(state.seed.toUpperCase())}`}</span><h1 tabindex="-1">${headline}</h1><p>${demo ? 'You place Sun lanterns. Moon answers with an automatic move. A match is designed for 6–10 minutes.' : 'Pass this screen between two players. The board teaches the opening moves.'}</p></div>
       </div>
       ${gameMarkup(state, demo)}
       <p id="copy-status" class="status-line" aria-live="polite"></p>
@@ -359,10 +360,15 @@ function setMetadata(path: string): void {
 }
 
 async function roomRequest(path: string, options: RequestInit = {}, token?: string): Promise<RoomSnapshot & { token?: string }> {
-  const response = await fetch(`${ROOM_API}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers }
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${ROOM_API}${path}`, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers }
+    });
+  } catch {
+    throw new Error('room-service-unreachable');
+  }
   const result = await response.json().catch(() => ({ error: 'The room service returned an unreadable response.' }));
   if (!response.ok) throw new Error(result.error || 'The room service is unavailable.');
   return result;
@@ -408,6 +414,7 @@ async function ensureRoom(code: string): Promise<void> {
   if (roomLoading || roomError || (roomSnapshot?.code === code && roomPoll)) return;
   if (!/^[A-Za-z0-9_-]{22}$/.test(code)) {
     roomError = 'This invite link is not valid.';
+    if (routePath() === '/play' && roomCode() === code) render();
     return;
   }
   roomLoading = true;
@@ -425,7 +432,9 @@ async function ensureRoom(code: string): Promise<void> {
     roomError = '';
     openRoomConnection(code, playerToken);
   } catch (error) {
-    roomError = error instanceof Error ? error.message : 'The room could not connect.';
+    roomError = error instanceof Error && error.message !== 'room-service-unreachable'
+      ? error.message
+      : 'The online room could not be reached. Check your connection, then try this room again.';
   } finally {
     roomLoading = false;
     if (routePath() === '/play' && roomCode() === code) render();
@@ -537,8 +546,15 @@ function bindActions(path: string): void {
           button.disabled = false;
           button.textContent = action === 'start-real' ? 'Start for real' : 'Start an online game';
           const status = document.querySelector<HTMLElement>('.hero-status');
-          if (status) status.textContent = error instanceof Error ? error.message : 'The room service is unavailable.';
+          if (status) {
+            status.textContent = error instanceof Error && error.message !== 'room-service-unreachable'
+              ? error.message
+              : 'The online room could not be created. Check your connection and try again.';
+          }
         }
+      } else if (action === 'retry-room') {
+        roomError = '';
+        render();
       } else if (action === 'new-game') {
         const game = createGame(createSeed());
         saveGame(game, false);

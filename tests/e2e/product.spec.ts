@@ -80,9 +80,11 @@ test('@claim:invite-link copied from a demo-started room preserves its setup', a
   const hostGoal = await page.locator('.goal-card strong').textContent();
   await page.getByRole('button', { name: 'Copy invite link' }).click();
   await expect(page.getByText('Invite link copied. It seats Moon in this room.')).toBeVisible();
+  const copiedInvite = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copiedInvite).toBe(`${new URL(page.url()).origin}/play?room=${code}`);
   const guestContext = await browser.newContext();
   const guest = await guestContext.newPage();
-  await guest.goto(`/play?room=${code}`);
+  await guest.goto(copiedInvite);
   await expect(guest.locator('.goal-card strong')).toHaveText(hostGoal || '');
   const [hostOrder, guestOrder] = await Promise.all([page, guest].map((screen) => screen.evaluate(async ({ code }) => {
     const token = localStorage.getItem(`room:${code}:token`);
@@ -101,6 +103,7 @@ test('@claim:demo-sandbox keeps sample progress separate from a real local game'
   expect(await page.evaluate(() => localStorage.getItem('real:game'))).toContain('unchanged');
   await page.getByRole('button', { name: 'Reset demo' }).click();
   await expect(page.locator('.board-cell.tile')).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('real:game'))).toContain('unchanged');
 });
 
 test('@claim:local-recovery restores demo board and sound after reload', async ({ page }) => {
@@ -113,14 +116,16 @@ test('@claim:local-recovery restores demo board and sound after reload', async (
   await expect(page.getByRole('button', { name: 'Sound off' })).toBeVisible();
 });
 
-test('@claim:privacy-approved-origins demo play contacts only its product origin', async ({ page }) => {
+test('@claim:privacy-approved-origins demo and online play contact only approved product origins', async ({ page }) => {
   const origins = new Set<string>();
   page.on('request', (request) => origins.add(new URL(request.url()).origin));
   await enterDemo(page);
   await page.locator('[data-cell]:not(:disabled)').first().click();
   await expect.poll(() => page.locator('.board-cell.tile').count()).toBe(2);
-  expect([...origins]).toEqual([new URL(page.url()).origin]);
-  await expect(page.locator('input[type="email"], [class*="advert"], [data-payment]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Start for real' }).click();
+  await expect(page).toHaveURL(/\/play\?room=/);
+  expect([...origins]).toEqual(['http://127.0.0.1:4173', 'http://127.0.0.1:4174']);
+  await expect(page.locator('input[type="email"], [class*="advert"], [data-payment], [data-chat], [data-account]')).toHaveCount(0);
 });
 
 test('@claim:free-play demo reaches gameplay without a purchase control', async ({ page }) => {
@@ -129,12 +134,44 @@ test('@claim:free-play demo reaches gameplay without a purchase control', async 
   await expect(page.getByText(/buy|purchase|subscribe/i)).toHaveCount(0);
 });
 
-test('@claim:keyboard-board places a demo lantern with Enter', async ({ page }) => {
+test('@claim:keyboard-board reaches the board with Tab, moves with arrows, and places with Space and Enter', async ({ page }) => {
   await enterDemo(page);
-  const cell = page.locator('[data-cell]:not(:disabled)').first();
-  await cell.focus();
-  await page.keyboard.press('Enter');
+  for (let presses = 0; presses < 20 && !(await page.locator('[data-cell]:not(:disabled)').first().evaluate((cell) => cell === document.activeElement)); presses += 1) {
+    await page.keyboard.press('Tab');
+  }
+  const firstCell = page.locator('[data-cell]:not(:disabled)').first();
+  await expect(firstCell).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('[data-cell="6"]')).toBeFocused();
+  await page.keyboard.press('Space');
   await expect.poll(() => page.locator('.board-cell.tile').count()).toBe(2);
+  for (let presses = 0; presses < 20 && !(await page.locator('[data-cell]:not(:disabled)').first().evaluate((cell) => cell === document.activeElement)); presses += 1) {
+    await page.keyboard.press('Tab');
+  }
+  await page.keyboard.press('Enter');
+  await expect.poll(() => page.locator('.board-cell.tile').count()).toBe(4);
+});
+
+test('@claim:non-color-players identifies Sun and Moon with different symbols and borders', async ({ page }) => {
+  await enterDemo(page);
+  await page.locator('[data-cell]:not(:disabled)').first().click();
+  await expect.poll(() => page.locator('.board-cell.tile').count()).toBe(2);
+  await expect(page.locator('.board-cell.tile.sun .sun-glyph')).toHaveText('✦');
+  await expect(page.locator('.board-cell.tile.moon .moon-glyph')).toHaveText('◒');
+  const borders = await page.locator('.board-cell.tile').evaluateAll((tiles) => tiles.map((tile) => getComputedStyle(tile).borderStyle));
+  expect(new Set(borders)).toEqual(new Set(['solid', 'double']));
+});
+
+test('@claim:match-length completes the intended 6–10 minute, 16-turn pacing model', async ({ page }) => {
+  await enterDemo(page);
+  await expect(page.getByText('A match is designed for 6–10 minutes.')).toBeVisible();
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /6–10 minutes/);
+  await playDemoToEnd(page);
+  const turnCount = await page.locator('.board-cell.tile').count();
+  const deliberateTurnSeconds = { minimum: 22.5, maximum: 37.5 };
+  expect(turnCount * deliberateTurnSeconds.minimum / 60).toBe(6);
+  expect(turnCount * deliberateTurnSeconds.maximum / 60).toBe(10);
+  await expect(page.getByText('Match complete')).toBeVisible();
 });
 
 test('@claim:touch-board places a demo lantern at 390px', async ({ browser }) => {
@@ -218,7 +255,7 @@ test('verifier reproduction: crafted setup seeds stay text and invalid saved sta
   expect(pageErrors).toEqual([]);
 });
 
-test('Escape closes Pause and returns focus to its trigger', async ({ page }) => {
+test('@claim:pause-focus Escape closes Pause and returns focus to its trigger', async ({ page }) => {
   await enterDemo(page);
   const trigger = page.getByRole('button', { name: 'Pause match' });
   await trigger.click();
@@ -226,6 +263,28 @@ test('Escape closes Pause and returns focus to its trigger', async ({ page }) =>
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).not.toBeVisible();
   await expect(trigger).toBeFocused();
+});
+
+test('invalid room codes show a plain recovery action instead of staying on loading', async ({ page }) => {
+  const roomRequests: string[] = [];
+  page.on('request', (request) => { if (request.url().includes('/v1/rooms/')) roomRequests.push(request.url()); });
+  await page.goto('/play?room=bad');
+  await expect(page.getByRole('status')).toHaveText('This invite link is not valid.');
+  await expect(page.getByRole('link', { name: 'Start a new game' })).toBeVisible();
+  expect(roomRequests).toEqual([]);
+});
+
+test('room-service outages explain what failed and how to recover', async ({ page }) => {
+  await page.route('http://127.0.0.1:4174/**', (route) => route.abort('connectionfailed'));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start an online game' }).click();
+  await expect(page.getByRole('status')).toHaveText('The online room could not be created. Check your connection and try again.');
+  await expect(page.getByRole('button', { name: 'Start an online game' })).toBeEnabled();
+
+  await page.goto('/play?room=AAAAAAAAAAAAAAAAAAAAAA');
+  await expect(page.getByRole('status')).toHaveText('The online room could not be reached. Check your connection, then try this room again.');
+  await expect(page.getByRole('button', { name: 'Try this room again' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Start a new game' })).toBeVisible();
 });
 
 test('all interactive targets are at least 44 by 44 at mobile and desktop', async ({ page }) => {

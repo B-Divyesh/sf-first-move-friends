@@ -42,6 +42,21 @@ Audited 2026-09-02. Counts treat hyphenated terms and numerals as one word. No s
 | You are offline. | 3 | Pass |
 | Your saved game still works. | 5 | Pass |
 
+## Repair copy
+
+| Copy | Words | Result |
+| --- | ---: | --- |
+| You place Sun lanterns. | 4 | Pass |
+| Moon answers with an automatic move. | 6 | Pass |
+| A match is designed for 6–10 minutes. | 7 | Pass |
+| This invite link is not valid. | 6 | Pass |
+| Start a new game | 4 | Pass |
+| The online room could not be created. | 7 | Pass |
+| Check your connection and try again. | 6 | Pass |
+| The online room could not be reached. | 7 | Pass |
+| Check your connection, then try this room again. | 8 | Pass |
+| Try this room again | 4 | Pass |
+
 ## Terminology
 
 | Concept | One term used |
