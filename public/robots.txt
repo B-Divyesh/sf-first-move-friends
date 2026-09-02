@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://first-move-friends.sociobot.in/sitemap.xml
