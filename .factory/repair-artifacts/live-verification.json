@@ -1,0 +1,64 @@
+{
+  "checkedAt": "2026-09-02T08:14:00.625Z",
+  "appUrl": "https://first-move-friends.sociobot.in",
+  "roomUrl": "https://first-move-friends-realtime.sociobot.in",
+  "desktop": {
+    "status": 200,
+    "h1": 1,
+    "main": 1
+  },
+  "mobile": {
+    "viewport": "390x844",
+    "boardBottom": 840.3
+  },
+  "keyboard": {
+    "tab": true,
+    "arrows": true,
+    "space": true,
+    "placements": 2
+  },
+  "accessibility": {
+    "mobileHomeViolations": 0,
+    "textResize200": true,
+    "/privacy": 0,
+    "/terms": 0,
+    "/404.html": 0,
+    "missingRouteViolations": 0
+  },
+  "offline": {
+    "serviceWorkerControlled": true,
+    "reloadWorked": true,
+    "playablePlacements": 1
+  },
+  "localMatch": {
+    "restoredPlacements": 1,
+    "completedPlacements": 16,
+    "result": "Sun wins 18–14",
+    "rematchPlacements": 0
+  },
+  "onlineMatch": {
+    "completedPlacements": 16,
+    "result": "Moon wins 24–16",
+    "rematchPlacements": 0,
+    "privacy": {
+      "requestOrigins": [
+        "https://first-move-friends-realtime.sociobot.in",
+        "https://first-move-friends.sociobot.in"
+      ],
+      "websocketOrigins": [
+        "wss://first-move-friends-realtime.sociobot.in"
+      ],
+      "websocketCount": 2,
+      "sentFrames": 0,
+      "receivedFrames": 37,
+      "payloadsRecorded": false
+    }
+  },
+  "responsePolicy": {
+    "missingRouteStatus": 404,
+    "standardSkeleton": true
+  },
+  "errors": [],
+  "ok": true,
+  "finishedAt": "2026-09-02T08:14:12.592Z"
+}

@@ -12,7 +12,8 @@
     "test": "vitest run && npm run test:server && playwright test",
     "test:unit": "vitest run",
     "test:server": "node --test realtime/server.test.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "verify:live": "node scripts/verify-live.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",

@@ -1,0 +1,14 @@
+{
+  "url": "https://first-move-friends.sociobot.in",
+  "loadMs": 689,
+  "errors": [],
+  "a11y": {
+    "title": "First Move Friends — Play a guided tile duel",
+    "lang": "en",
+    "h1": 1,
+    "main": true,
+    "imgsMissingAlt": 0,
+    "buttonsUnlabeled": 0,
+    "textLength": 1011
+  }
+}
