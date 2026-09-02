@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const roomDataDirectory = `.test-data/run-${Date.now()}`;
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
@@ -19,7 +21,7 @@ export default defineConfig({
       reuseExistingServer: false
     },
     {
-      command: 'DATA_DIR=.test-data PORT=4174 node realtime/server.mjs',
+      command: `DATA_DIR=${roomDataDirectory} PORT=4174 node realtime/server.mjs`,
       url: 'http://127.0.0.1:4174/health',
       reuseExistingServer: false
     }

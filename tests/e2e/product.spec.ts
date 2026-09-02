@@ -122,14 +122,28 @@ test('@claim:local-recovery restores demo board and sound after reload', async (
 test('@claim:privacy-approved-origins demo and online play contact only approved product origins', async ({ page }) => {
   const origins = new Set<string>();
   const websocketOrigins = new Set<string>();
-  page.on('request', (request) => origins.add(new URL(request.url()).origin));
-  page.on('websocket', (socket) => websocketOrigins.add(new URL(socket.url()).origin));
+  let websocketCount = 0;
+  let pollingGets = 0;
+  page.on('request', (request) => {
+    origins.add(new URL(request.url()).origin);
+    if (request.method() === 'GET' && /\/v1\/rooms\/[A-Za-z0-9_-]{22}$/.test(new URL(request.url()).pathname)) pollingGets += 1;
+  });
+  page.on('websocket', (socket) => {
+    websocketCount += 1;
+    websocketOrigins.add(new URL(socket.url()).origin);
+  });
   await enterDemo(page);
   await page.locator('[data-cell]:not(:disabled)').first().click();
   await expect.poll(() => page.locator('.board-cell.tile').count()).toBe(2);
   await page.getByRole('button', { name: 'Start for real' }).click();
   await expect(page).toHaveURL(/\/play\?room=/);
   await expect.poll(() => [...websocketOrigins]).toEqual(['ws://127.0.0.1:4174']);
+  await page.waitForTimeout(300);
+  const initialSyncGets = pollingGets;
+  expect(initialSyncGets).toBeLessThanOrEqual(2);
+  await page.waitForTimeout(2_300);
+  expect(websocketCount).toBe(1);
+  expect(pollingGets).toBe(initialSyncGets);
   expect([...origins]).toEqual(['http://127.0.0.1:4173', 'http://127.0.0.1:4174']);
   await expect(page.locator('input[type="email"], [class*="advert"], [data-payment], [data-chat], [data-account]')).toHaveCount(0);
 });

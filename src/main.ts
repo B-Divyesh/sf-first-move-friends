@@ -472,7 +472,7 @@ function openRoomConnection(code: string, token: string): void {
 }
 
 async function ensureRoom(code: string): Promise<void> {
-  if (roomLoading || roomError || (roomSnapshot?.code === code && roomPoll)) return;
+  if (roomLoading || roomError || (roomSnapshot?.code === code && (roomPoll || roomSocket))) return;
   if (!/^[A-Za-z0-9_-]{22}$/.test(code)) {
     roomError = 'This invite link is not valid.';
     if (routePath() === '/play' && roomCode() === code) render();
