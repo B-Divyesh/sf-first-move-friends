@@ -11,7 +11,7 @@ const dataDir = process.env.DATA_DIR || '/data';
 const ttlMs = Number(process.env.ROOM_TTL_MS || 2 * 60 * 60 * 1000);
 const cleanupMs = Number(process.env.ROOM_CLEANUP_MS || 10 * 60 * 1000);
 const rateWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
-const buildId = process.env.BUILD_ID || 'development';
+const buildId = process.env.SOURCE_COMMIT || process.env.BUILD_ID || 'development';
 const allowedOrigins = new Set([
   'https://first-move-friends.sociobot.in',
   'http://127.0.0.1:4173',

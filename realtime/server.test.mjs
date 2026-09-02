@@ -146,14 +146,14 @@ test('@claim:durable-room-restart an active room survives a room-service restart
 });
 
 test('health and response headers expose the immutable realtime build identity', async (t) => {
-  const { child, base } = await startServer({ BUILD_ID: 'repair-test-build' });
+  const { child, base } = await startServer({ BUILD_ID: 'stale-runtime-value', SOURCE_COMMIT: 'repair-test-build' });
   t.after(() => child.kill('SIGTERM'));
   const response = await fetch(`${base}/health`);
   assert.equal(response.headers.get('x-build-id'), 'repair-test-build');
   assert.deepEqual(await response.json(), { ok: true, buildId: 'repair-test-build' });
   const dockerfile = await readFile(new URL('./Dockerfile', import.meta.url), 'utf8');
   assert.match(dockerfile, /ARG SOURCE_COMMIT=development/);
-  assert.match(dockerfile, /BUILD_ID=\$SOURCE_COMMIT/);
+  assert.match(dockerfile, /SOURCE_COMMIT=\$SOURCE_COMMIT/);
 });
 
 test('static deployment config preserves a real 404 for unknown routes', async () => {
