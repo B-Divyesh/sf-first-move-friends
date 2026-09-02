@@ -1,0 +1,9 @@
+{
+  "asset": "lantern-table.png",
+  "generated": "2026-09-02",
+  "tool": "/opt/fleet/lib/gen-image.sh using factory-image",
+  "size": "1536x1024",
+  "quality": "high",
+  "prompt": "Overhead editorial still life of a four by four tabletop lantern game, impossible concentric paper lantern geometry, cut-paper circles and thin orbital linework, midnight indigo surface, warm amber and cool turquoise light, soft long shadows, subtle tactile paper grain, generous dark negative space on the left, sophisticated generative geometry, no people, no hands, no text, no letters, no numbers, no watermark, no logos, no branded objects, no interface screenshot",
+  "review": "Accepted. No text, people, brand marks, broken seams, or unintended symbols found."
+}
