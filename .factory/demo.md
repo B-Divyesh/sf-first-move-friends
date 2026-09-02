@@ -2,28 +2,18 @@
 
 ## Entry point
 
-Use `/demo` or `?demo=1` is not required. The canonical verifier URL is:
-
-`https://first-move-friends.sociobot.in/demo`
-
-Locally, run `npm run dev` and open `http://localhost:5173/demo`.
+Use `https://first-move-friends.sociobot.in/demo`. Locally, run the browser and room services, then open `http://127.0.0.1:4173/demo`.
 
 ## Sample state
 
-The demo uses seed `sample42`. It begins with four legal placements already on the board. Sun is the visitor and Moon chooses a validated reply after each Sun move. The sample goal, marks, scores, and bot choices are deterministic.
+The demo uses deterministic seed `sample42` and starts on move one with an empty board. It presents all three teaching turns. The visitor plays Sun and the browser chooses a validated Moon reply.
 
 ## Isolation
 
-Demo game progress is stored only in `localStorage` key `demo:game`. Its sound setting is stored in `demo:settings`. Real games use `real:game` and `real:settings`. Demo rendering never reads or writes those real keys.
+Demo progress uses `localStorage` key `demo:game`; its sound choice uses `demo:settings`. Local games use `real:` keys. Online player keys use `room:<code>:token`. Demo rendering never reads or writes either namespace.
 
-“Reset demo” removes `demo:game` and immediately rebuilds the four-move sample. “Start for real” removes demo game progress, creates a new real seed, and opens `/play`.
+“Reset demo” removes only `demo:game` and rebuilds the empty sample. “Start for real” discards the demo state, creates an isolated expiring online room, and opens it as Sun.
 
 ## Verification
 
-Run:
-
-```sh
-npm run test:e2e -- --grep @claim:demo-sandbox
-```
-
-The test creates real progress, plays in the demo, verifies the real key is unchanged, and resets the sample to four moves.
+Every command in `.factory/claims.json` starts at `/demo` in a fresh browser context. Run all deterministic, room-service, and browser checks with `npm test`.

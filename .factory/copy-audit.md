@@ -9,9 +9,10 @@ Audited 2026-09-02. Counts treat hyphenated terms and numerals as one word. No s
 | For pairs who want a short game without accounts or a rulebook wall. | 13 | Pass |
 | Try it with sample data | 6 | Pass |
 | Starts a guided match against Moon. | 6 | Pass |
-| Start a two-player game | 5 | Pass |
-| Works offline after the first visit. | 6 | Pass |
-| No account or ads. | 4 | Pass |
+| Start an online game | 4 | Pass |
+| Play on one screen | 4 | Pass |
+| The saved demo works offline after the first visit. | 9 | Pass |
+| No account, chat, or ads. | 5 | Pass |
 | Free to play. | 3 | Pass |
 | Public goal | 2 | Pass |
 | Edge glow | 2 | Pass |
@@ -33,8 +34,8 @@ Audited 2026-09-02. Counts treat hyphenated terms and numerals as one word. No s
 | The higher score wins after all 16 lanterns are placed. | 10 | Pass |
 | Small by design | 3 | Pass |
 | What this game leaves out | 5 | Pass |
-| There is no sign-up, chat, public matchmaking, ranking, tracking, or payment. | 11 | Pass |
-| A match stays in this browser. | 6 | Pass |
+| There is no sign-up, public matchmaking, ranking, tracking, or payment. | 10 | Pass |
+| Online rooms expire after two hours. | 6 | Pass |
 | Play a guided 4×4 lantern duel with a friend. | 9 | Pass |
 | Built by Param Factory | 4 | Pass |
 | Original generated scene | 3 | Pass |
@@ -52,7 +53,7 @@ Audited 2026-09-02. Counts treat hyphenated terms and numerals as one word. No s
 | Cool player | Moon |
 | New game with changed order | rematch |
 | Isolated sample experience | demo |
-| Shareable deterministic configuration | setup link |
+| Link that seats a remote player | invite link |
 
 ## Read-aloud check
 

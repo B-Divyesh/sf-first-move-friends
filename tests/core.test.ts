@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { activePlayer, createGame, legalCells, nextRematch, placeTile, winnerText } from '../src/core';
+import { activePlayer, createGame, isGameState, legalCells, nextRematch, normalizeSeed, placeTile, winnerText } from '../src/core';
 
 function finish(seed = 'claim-seed') {
   let state = createGame(seed);
@@ -19,7 +19,7 @@ describe('deterministic game core', () => {
     expect(winnerText(state)).toMatch(/wins|Draw/);
   });
 
-  test('@claim:guided-opening exposes only the taught legal moves', () => {
+  test('guided opening exposes only the taught legal moves', () => {
     let state = createGame('opening');
     expect(legalCells(state)).toEqual([5, 6, 9, 10]);
     state = placeTile(state, 5);
@@ -28,7 +28,7 @@ describe('deterministic game core', () => {
     expect(legalCells(state).every((cell) => !state.placements.some((tile) => tile.cell === cell))).toBe(true);
   });
 
-  test('@claim:two-players alternates Sun and Moon without an account', () => {
+  test('two players alternate Sun and Moon without an account', () => {
     let state = createGame('pair');
     expect(activePlayer(state)).toBe('sun');
     state = placeTile(state, legalCells(state)[0]);
@@ -41,5 +41,12 @@ describe('deterministic game core', () => {
     expect(rematch.placements).toHaveLength(0);
     expect(rematch.rematch).toBe(1);
     expect(`${rematch.goal}:${rematch.tileOrder.join('')}`).not.toBe(`${finished.goal}:${finished.tileOrder.join('')}`);
+  });
+
+  test('rejects incomplete saved state and treats a crafted seed as plain text', () => {
+    expect(isGameState({ seed: 'x', placements: [], scores: {} })).toBe(false);
+    expect(isGameState({ ...createGame('safe'), goal: 'unknown' })).toBe(false);
+    expect(isGameState({ ...createGame('safe'), scores: { sun: 999, moon: 0 } })).toBe(false);
+    expect(normalizeSeed('<h1>Injected</h1>')).toBe('h1Injectedh1');
   });
 });

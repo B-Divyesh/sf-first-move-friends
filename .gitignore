@@ -4,3 +4,4 @@ test-results/
 playwright-report/
 .factory/evidence/
 graphify-out/
+.test-data/

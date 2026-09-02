@@ -5,6 +5,7 @@ import {
   createDemoGame,
   createGame,
   createSeed,
+  isGameState,
   legalCells,
   nextRematch,
   placeTile,
@@ -18,6 +19,23 @@ import {
 const root = document.querySelector<HTMLDivElement>('#app');
 if (!root) throw new Error('App root is missing.');
 const app: HTMLDivElement = root;
+const ROOM_API = (import.meta.env.VITE_ROOM_API_URL || 'https://first-move-friends-realtime.sociobot.in').replace(/\/$/, '');
+
+interface RoomSnapshot {
+  code: string;
+  seat: Player;
+  ready: boolean;
+  version: number;
+  expiresAt: string;
+  state: GameState;
+}
+
+let roomSnapshot: RoomSnapshot | undefined;
+let roomError = '';
+let roomLoading = false;
+let roomSocket: WebSocket | undefined;
+let roomPoll: number | undefined;
+let pauseTrigger: HTMLElement | null = null;
 
 const ROUTE_TITLES: Record<string, string> = {
   '/': 'First Move Friends — Play a guided tile duel',
@@ -29,9 +47,9 @@ const ROUTE_TITLES: Record<string, string> = {
 };
 
 const META_DESCRIPTIONS: Record<string, string> = {
-  '/': 'Play a guided 4×4 lantern duel with a friend. Learn through three opening moves, then finish a match in 6–10 minutes.',
-  '/demo': 'Try a guided First Move Friends match with sample moves and an automatic Moon player.',
-  '/play': 'Play a private two-player lantern tile match on one shared screen.',
+  '/': 'Play a guided 4×4 lantern duel with a friend on one screen or two connected screens.',
+  '/demo': 'Try a guided First Move Friends match from the first teaching move against an automatic Moon player.',
+  '/play': 'Play a private two-player lantern tile match on one screen or two connected screens.',
   '/privacy': 'Read how First Move Friends stores game progress on your device.',
   '/terms': 'Read the terms for playing First Move Friends.',
   '/404': 'The requested First Move Friends page was not found.'
@@ -56,18 +74,28 @@ function settingsKey(demo: boolean): string {
   return demo ? 'demo:settings' : 'real:settings';
 }
 
-function isGameState(value: unknown): value is GameState {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<GameState>;
-  return typeof candidate.seed === 'string' && Array.isArray(candidate.placements) && candidate.scores !== undefined;
+function escapeText(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] || character);
 }
 
 function loadGame(demo: boolean): GameState {
+  const querySeed = demo ? null : new URLSearchParams(location.search).get('seed');
+  if (querySeed) {
+    const requested = createGame(querySeed);
+    const savedSeed = (() => {
+      try { return JSON.parse(localStorage.getItem(storageKey(false)) || '{}').seed; } catch { return undefined; }
+    })();
+    if (requested.seed !== savedSeed) {
+      localStorage.setItem(storageKey(false), JSON.stringify(requested));
+      return requested;
+    }
+  }
   const saved = localStorage.getItem(storageKey(demo));
   if (saved) {
     try {
       const parsed: unknown = JSON.parse(saved);
       if (isGameState(parsed)) return { ...parsed, paused: false };
+      localStorage.removeItem(storageKey(demo));
     } catch {
       localStorage.removeItem(storageKey(demo));
     }
@@ -77,8 +105,7 @@ function loadGame(demo: boolean): GameState {
     localStorage.setItem(storageKey(true), JSON.stringify(sample));
     return sample;
   }
-  const querySeed = new URLSearchParams(location.search).get('seed');
-  const game = createGame(querySeed?.slice(0, 24) || createSeed());
+  const game = createGame(querySeed || createSeed());
   localStorage.setItem(storageKey(false), JSON.stringify(game));
   return game;
 }
@@ -192,7 +219,7 @@ function scoreMarkup(state: GameState): string {
   </div>`;
 }
 
-function gameMarkup(state: GameState, demo: boolean, preview = false): string {
+function gameMarkup(state: GameState, demo: boolean, preview = false, canInteract = true, onlineStatus = ''): string {
   const goal = GOALS[state.goal];
   const result = state.status === 'finished';
   return `<section class="game-stage ${preview ? 'preview' : ''}" aria-label="Lantern game">
@@ -206,9 +233,9 @@ function gameMarkup(state: GameState, demo: boolean, preview = false): string {
     </div>
     ${scoreMarkup(state)}
     <div class="play-area">
-      ${boardMarkup(state, !preview && !result)}
+      ${boardMarkup(state, !preview && !result && canInteract)}
       <aside class="turn-panel" aria-live="polite">
-        ${result ? `<span class="eyebrow">Match complete</span><h2>${winnerText(state)}</h2><p>Every lantern is placed. Start a rematch for a new tile order and goal.</p>` : `<span class="eyebrow">Move ${state.placements.length + 1}</span><h2>${preview ? 'The first moves teach the game' : tutorialText(state)}</h2><p>${state.placements.length < 3 ? 'Only useful cells are marked. No rulebook is needed.' : `Next tile: ${state.tileOrder[state.placements.length]}. ${goal.short}.`}</p>`}
+        ${result ? `<span class="eyebrow">Match complete</span><h2>${winnerText(state)}</h2><p>Every lantern is placed. Start a rematch for a new tile order and goal.</p>` : `<span class="eyebrow">Move ${state.placements.length + 1}</span><h2>${preview ? 'The first moves teach the game' : escapeText(onlineStatus || tutorialText(state))}</h2><p>${state.placements.length < 3 ? 'Only useful cells are marked. No rulebook is needed.' : `Next tile: ${state.tileOrder[state.placements.length]}. ${goal.short}.`}</p>`}
         ${preview ? '<a class="button primary compact" href="/demo" data-route>Play this sample</a>' : result ? '<button class="button primary compact" type="button" data-action="rematch">Play a rematch</button>' : '<button class="text-button" type="button" data-action="pause">Pause match</button>'}
       </aside>
     </div>
@@ -229,10 +256,10 @@ function landing(): string {
             <a class="button primary" href="/demo" data-route>Try it with sample data</a>
             <span>Starts a guided match against Moon.</span>
           </div>
-          <button class="button secondary" type="button" data-action="new-game">Start a two-player game</button>
+          <div class="mode-actions"><button class="button secondary" type="button" data-action="new-room">Start an online game</button><button class="text-button" type="button" data-action="new-game">Play on one screen</button></div><p class="hero-status" role="status" aria-live="polite"></p>
           <ul class="plain-facts" aria-label="Game facts">
-            <li>Works offline after the first visit.</li>
-            <li>No account or ads.</li>
+            <li>The saved demo works offline after the first visit.</li>
+            <li>No account, chat, or ads.</li>
             <li>Free to play.</li>
           </ul>
         </div>
@@ -248,7 +275,7 @@ function landing(): string {
       </section>
       <section class="limits section-wrap">
         <div><span class="eyebrow">Small by design</span><h2>What this game leaves out</h2></div>
-        <p>There is no sign-up, chat, public matchmaking, ranking, tracking, or payment. A match stays in this browser.</p>
+        <p>There is no sign-up, public matchmaking, ranking, tracking, or payment. Online rooms expire after two hours.</p>
       </section>
     </main>${footer()}`;
 }
@@ -257,14 +284,45 @@ function demoBanner(): string {
   return `<div class="demo-banner" role="status"><span><strong>Demo</strong> — sample data, nothing is saved to your real game.</span><div><button type="button" data-action="reset-demo">Reset demo</button><button type="button" data-action="start-real">Start for real</button></div></div>`;
 }
 
+function roomCode(): string | null {
+  return new URLSearchParams(location.search).get('room');
+}
+
+function roomTokenKey(code: string): string {
+  return `room:${code}:token`;
+}
+
+function roomLoadingPage(code: string): string {
+  const message = roomError || 'Connecting to the room…';
+  return `${header()}<main id="main" class="play-page room-state"><span class="eyebrow">Online room</span><h1 tabindex="-1">Join a lantern duel</h1><p role="status">${escapeText(message)}</p>${roomError ? '<a class="button primary" href="/" data-route>Start a new game</a>' : ''}</main>${footer()}`;
+}
+
 function playPage(demo: boolean): string {
+  const code = !demo ? roomCode() : null;
+  if (code && (!roomSnapshot || roomSnapshot.code !== code)) return roomLoadingPage(code);
+  if (code && roomSnapshot) {
+    const state = roomSnapshot.state;
+    const current = activePlayer(state);
+    const canInteract = roomSnapshot.ready && current === roomSnapshot.seat;
+    const status = !roomSnapshot.ready
+      ? 'Waiting for Moon to open the invite link.'
+      : canInteract
+        ? `Your turn as ${roomSnapshot.seat === 'sun' ? 'Sun' : 'Moon'}.`
+        : `Waiting for ${current === 'sun' ? 'Sun' : 'Moon'}.`;
+    return `${header()}<main id="main" class="play-page">
+      <div class="play-heading"><div><span class="eyebrow">Online room · ${escapeText(code)}</span><h1 tabindex="-1">Play together from two screens</h1><p>You are ${roomSnapshot.seat === 'sun' ? 'Sun' : 'Moon'}. ${escapeText(status)} The room expires at ${new Date(roomSnapshot.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.</p></div>
+      <button class="button secondary compact" type="button" data-action="copy-invite">Copy invite link</button></div>
+      ${gameMarkup(state, false, false, canInteract, status)}
+      <p id="copy-status" class="status-line" aria-live="polite"></p>
+      <dialog class="pause-dialog" aria-labelledby="pause-title"><div><span class="eyebrow">Board covered</span><h2 id="pause-title">Your room stays connected</h2><p>Resume when you are ready.</p><button class="button primary" type="button" data-action="resume">Resume match</button></div></dialog>
+    </main>${footer()}`;
+  }
   const state = loadGame(demo);
   const headline = demo ? 'Play a guided sample match' : 'Play a lantern duel together';
   return `${demo ? demoBanner() : ''}${header()}
     <main id="main" class="play-page">
       <div class="play-heading">
-        <div><span class="eyebrow">${demo ? 'Sample match' : `Setup ${state.seed.toUpperCase()}`}</span><h1 tabindex="-1">${headline}</h1><p>${demo ? 'You place Sun lanterns. Moon answers with an automatic move.' : 'Pass this screen between two players. The board teaches the opening moves.'}</p></div>
-        ${demo ? '' : '<button class="button secondary compact" type="button" data-action="copy-setup">Copy setup link</button>'}
+        <div><span class="eyebrow">${demo ? 'Sample match' : `Setup ${escapeText(state.seed.toUpperCase())}`}</span><h1 tabindex="-1">${headline}</h1><p>${demo ? 'You place Sun lanterns. Moon answers with an automatic move.' : 'Pass this screen between two players. The board teaches the opening moves.'}</p></div>
       </div>
       ${gameMarkup(state, demo)}
       <p id="copy-status" class="status-line" aria-live="polite"></p>
@@ -279,11 +337,11 @@ function textPage(kind: 'privacy' | 'terms'): string {
     <h1 tabindex="-1">${privacy ? 'Your game stays in this browser' : 'Play fairly and kindly'}</h1>
     ${privacy ? `
       <p>First Move Friends does not ask for your name, email address, or account.</p>
-      <h2>What is stored</h2><p>Your current board, sound choice, and rematch number use local browser storage. Demo data uses separate keys that start with <code>demo:</code>.</p>
-      <h2>What is sent</h2><p>The static site receives normal web requests needed to load its files. The game has no analytics, advertising, or third-party scripts.</p>
+      <h2>What is stored</h2><p>Local games, sound choices, and online player keys use browser storage. Demo keys start with <code>demo:</code> and stay separate.</p>
+      <h2>What is sent</h2><p>Online room moves go to the product’s room service. Rooms expire after two hours. The game has no analytics, advertising, or third-party scripts.</p>
       <h2>How to remove data</h2><p>Clear this site’s browser storage. Resetting the demo removes only sample progress.</p>` : `
-      <p>First Move Friends is a free local game for two people sharing one screen.</p>
-      <h2>Use of the game</h2><p>You may play and share setup links for personal use. Do not use the site to disrupt its service or harm other people.</p>
+      <p>First Move Friends is a free game for two people on one screen or two connected screens.</p>
+      <h2>Use of the game</h2><p>You may play and share invite links for personal use. Do not use the site to disrupt its service or harm other people.</p>
       <h2>No warranty</h2><p>The game is provided as available, without a promise that every browser or device will work.</p>
       <h2>Changes</h2><p>These terms may change when the game changes. The current version appears on this page.</p>`}
     <p class="updated">Last updated: 2 September 2026</p>
@@ -300,6 +358,80 @@ function setMetadata(path: string): void {
   document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.setAttribute('href', `https://first-move-friends.sociobot.in${path === '/' ? '/' : path}`);
 }
 
+async function roomRequest(path: string, options: RequestInit = {}, token?: string): Promise<RoomSnapshot & { token?: string }> {
+  const response = await fetch(`${ROOM_API}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers }
+  });
+  const result = await response.json().catch(() => ({ error: 'The room service returned an unreadable response.' }));
+  if (!response.ok) throw new Error(result.error || 'The room service is unavailable.');
+  return result;
+}
+
+function stopRoomConnection(): void {
+  roomSocket?.close();
+  roomSocket = undefined;
+  window.clearInterval(roomPoll);
+  roomPoll = undefined;
+}
+
+async function refreshRoom(code: string, token: string): Promise<void> {
+  try {
+    const next = await roomRequest(`/v1/rooms/${encodeURIComponent(code)}`, {}, token);
+    const changed = !roomSnapshot || next.version !== roomSnapshot.version || next.ready !== roomSnapshot.ready;
+    roomSnapshot = next;
+    roomError = '';
+    if (changed && routePath() === '/play' && roomCode() === code) render();
+  } catch (error) {
+    roomError = error instanceof Error ? error.message : 'The room could not reconnect.';
+    if (routePath() === '/play') render();
+  }
+}
+
+function openRoomConnection(code: string, token: string): void {
+  stopRoomConnection();
+  try {
+    const url = new URL(ROOM_API);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    url.pathname = `/v1/rooms/${encodeURIComponent(code)}/events`;
+    url.search = `token=${encodeURIComponent(token)}`;
+    roomSocket = new WebSocket(url);
+    roomSocket.addEventListener('message', () => void refreshRoom(code, token));
+    roomSocket.addEventListener('close', () => { roomSocket = undefined; });
+  } catch {
+    roomSocket = undefined;
+  }
+  roomPoll = window.setInterval(() => void refreshRoom(code, token), 2000);
+}
+
+async function ensureRoom(code: string): Promise<void> {
+  if (roomLoading || roomError || (roomSnapshot?.code === code && roomPoll)) return;
+  if (!/^[A-Za-z0-9_-]{22}$/.test(code)) {
+    roomError = 'This invite link is not valid.';
+    return;
+  }
+  roomLoading = true;
+  try {
+    let playerToken = localStorage.getItem(roomTokenKey(code));
+    let next: RoomSnapshot & { token?: string };
+    if (playerToken) {
+      next = await roomRequest(`/v1/rooms/${encodeURIComponent(code)}`, {}, playerToken);
+    } else {
+      next = await roomRequest(`/v1/rooms/${encodeURIComponent(code)}/join`, { method: 'POST', body: '{}' });
+      playerToken = next.token || '';
+      localStorage.setItem(roomTokenKey(code), playerToken);
+    }
+    roomSnapshot = next;
+    roomError = '';
+    openRoomConnection(code, playerToken);
+  } catch (error) {
+    roomError = error instanceof Error ? error.message : 'The room could not connect.';
+  } finally {
+    roomLoading = false;
+    if (routePath() === '/play' && roomCode() === code) render();
+  }
+}
+
 function render(moveFocus = false): void {
   window.clearTimeout(botTimer);
   const path = routePath();
@@ -313,6 +445,9 @@ function render(moveFocus = false): void {
   bindActions(path);
   if (moveFocus) document.querySelector<HTMLElement>('h1')?.focus();
   if (path === '/demo') scheduleDemoMove();
+  const code = path === '/play' ? roomCode() : null;
+  if (code) void ensureRoom(code);
+  else if (roomPoll || roomSocket) stopRoomConnection();
 }
 
 function scheduleDemoMove(): void {
@@ -353,8 +488,25 @@ function bindActions(path: string): void {
 
   document.querySelectorAll<HTMLButtonElement>('[data-cell]:not(:disabled)').forEach((button) => {
     button.addEventListener('keydown', (event) => handleBoardKey(event, button));
-    button.addEventListener('click', () => {
+    button.addEventListener('click', async () => {
       const demo = path === '/demo';
+      const code = !demo ? roomCode() : null;
+      if (code && roomSnapshot) {
+        const playerToken = localStorage.getItem(roomTokenKey(code)) || '';
+        try {
+          const next = await roomRequest(`/v1/rooms/${encodeURIComponent(code)}/moves`, {
+            method: 'POST',
+            body: JSON.stringify({ cell: Number(button.dataset.cell), version: roomSnapshot.version })
+          }, playerToken);
+          roomSnapshot = next;
+          tone(next.seat, false);
+          render();
+        } catch (error) {
+          roomError = error instanceof Error ? error.message : 'The move was not accepted.';
+          await refreshRoom(code, playerToken);
+        }
+        return;
+      }
       const current = loadGame(demo);
       if (demo && activePlayer(current) !== 'sun') return;
       const next = placeTile(current, Number(button.dataset.cell));
@@ -370,8 +522,24 @@ function bindActions(path: string): void {
     button.addEventListener('click', async () => {
       const action = button.dataset.action;
       const demo = path === '/demo';
-      if (action === 'new-game' || action === 'start-real') {
+      if (action === 'new-room' || action === 'start-real') {
         if (action === 'start-real') localStorage.removeItem('demo:game');
+        button.disabled = true;
+        button.textContent = 'Creating room…';
+        try {
+          const next = await roomRequest('/v1/rooms', { method: 'POST', body: '{}' });
+          if (!next.token) throw new Error('The room did not return a player key.');
+          localStorage.setItem(roomTokenKey(next.code), next.token);
+          roomSnapshot = next;
+          roomError = '';
+          navigate(`/play?room=${encodeURIComponent(next.code)}`);
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = action === 'start-real' ? 'Start for real' : 'Start an online game';
+          const status = document.querySelector<HTMLElement>('.hero-status');
+          if (status) status.textContent = error instanceof Error ? error.message : 'The room service is unavailable.';
+        }
+      } else if (action === 'new-game') {
         const game = createGame(createSeed());
         saveGame(game, false);
         navigate(`/play?seed=${game.seed}`);
@@ -379,23 +547,33 @@ function bindActions(path: string): void {
         localStorage.removeItem('demo:game');
         render();
       } else if (action === 'rematch') {
-        const game = nextRematch(loadGame(demo));
-        saveGame(game, demo);
-        render();
+        const code = roomCode();
+        if (code && roomSnapshot) {
+          try {
+            roomSnapshot = await roomRequest(`/v1/rooms/${encodeURIComponent(code)}/rematch`, { method: 'POST', body: '{}' }, localStorage.getItem(roomTokenKey(code)) || '');
+            render();
+          } catch (error) {
+            const status = document.querySelector('#copy-status');
+            if (status) status.textContent = error instanceof Error ? error.message : 'The rematch could not start.';
+          }
+        } else {
+          const game = nextRematch(loadGame(demo));
+          saveGame(game, demo);
+          render();
+        }
       } else if (action === 'mute') {
         localStorage.setItem(settingsKey(demo), muted(demo) ? 'sound' : 'muted');
         render();
       } else if (action === 'pause') {
-        const state = { ...loadGame(demo), paused: true };
-        saveGame(state, demo);
+        pauseTrigger = button;
+        if (!roomCode()) saveGame({ ...loadGame(demo), paused: true }, demo);
         const dialog = document.querySelector<HTMLDialogElement>('.pause-dialog');
         dialog?.showModal();
         dialog?.querySelector<HTMLButtonElement>('[data-action="resume"]')?.focus();
       } else if (action === 'resume') {
-        const state = { ...loadGame(demo), paused: false };
-        saveGame(state, demo);
+        if (!roomCode()) saveGame({ ...loadGame(demo), paused: false }, demo);
         document.querySelector<HTMLDialogElement>('.pause-dialog')?.close();
-        render();
+        pauseTrigger?.focus();
       } else if (action === 'copy-setup') {
         const state = loadGame(false);
         const url = `${location.origin}/play?seed=${encodeURIComponent(state.seed)}`;
@@ -407,6 +585,17 @@ function bindActions(path: string): void {
           const status = document.querySelector('#copy-status');
           if (status) status.textContent = `Copy this setup link: ${url}`;
         }
+      } else if (action === 'copy-invite') {
+        const code = roomCode();
+        if (!code) return;
+        const url = `${location.origin}/play?room=${encodeURIComponent(code)}`;
+        const status = document.querySelector('#copy-status');
+        try {
+          await navigator.clipboard.writeText(url);
+          if (status) status.textContent = 'Invite link copied. It seats Moon in this room.';
+        } catch {
+          if (status) status.textContent = `Copy this invite link: ${url}`;
+        }
       }
     });
   });
@@ -414,9 +603,9 @@ function bindActions(path: string): void {
   document.querySelector<HTMLDialogElement>('.pause-dialog')?.addEventListener('cancel', (event) => {
     event.preventDefault();
     const demo = path === '/demo';
-    saveGame({ ...loadGame(demo), paused: false }, demo);
+    if (!roomCode()) saveGame({ ...loadGame(demo), paused: false }, demo);
     document.querySelector<HTMLDialogElement>('.pause-dialog')?.close();
-    render();
+    pauseTrigger?.focus();
   });
 }
 

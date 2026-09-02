@@ -1,51 +1,58 @@
 # First Move Friends
 
-Play a guided 4×4 lantern duel with a friend.
+Play a guided 4×4 lantern duel with a friend on one screen or two.
 
-First Move Friends is a free, local two-player browser game. Two people share one screen and place 16 lanterns. The first three turns mark useful cells, so new players learn during the match. One public goal and a shuffled tile order change each rematch.
-
-The shipped static v1 is pass-and-play. It does not synchronize remote players. See [Known gap](#known-gap) below.
+First Move Friends is a free two-player browser game. Place 16 lanterns around one public goal. The first three turns mark useful cells, so new players learn during the match. Online games use a private expiring room; local games work on one shared screen.
 
 ## Try the demo
 
-Open `/demo`, or run the site and visit `http://localhost:5173/demo`. The sample starts after four realistic moves. You play Sun while the browser plays Moon. A banner explains that demo progress uses separate storage.
+Open `/demo`, or run the site and visit `http://localhost:5173/demo`. The sample begins at the first tutorial move. You play Sun while the browser makes Moon’s validated move. The banner remains visible, and demo progress uses only `demo:` storage keys.
+
+## Play online
+
+Choose “Start an online game” and send the invite link to one friend. The private room expires two hours after creation. The room service validates the player, turn, board cell, and state version before saving a move. Refreshing either screen reconnects it with its local player key.
+
+The static site stays at `first-move-friends.sociobot.in`. Its product-owned room service is `first-move-friends-realtime.sociobot.in` and stores rooms in SQLite at `/data`.
 
 ## Controls
 
 - Pointer or touch: choose any cell marked “Place”.
 - Keyboard: Tab to the board, use arrow keys between legal cells, then press Enter or Space.
-- Pause: choose “Pause match”. Progress is restored after refresh.
+- Pause: choose “Pause match”. Escape or “Resume match” returns focus to the Pause control.
 - Sound: choose “Sound on” or “Sound off”. The choice is stored on this device.
 
 ## Run and verify
 
-Requires Node.js 20 or newer.
+Requires Node.js 22 or newer.
 
 ```sh
-npm install
-npm run dev
+npm ci
 npm test
 npm run build
 npm run preview
 ```
 
-The exact production build command is `npm run build`. It writes `index.html` and all static assets to `dist/`.
+The room service can be run separately:
+
+```sh
+DATA_DIR=.data PORT=4174 node realtime/server.mjs
+```
+
+`npm test` runs deterministic core tests, room API integration tests, and Playwright browser tests. The production build writes the static artifact to `dist/`.
 
 ## Privacy and accessibility
 
-The game has no accounts, analytics, ads, or third-party runtime scripts. Current progress and settings use localStorage. After one online visit, the installed game shell works offline. Sun and Moon use distinct symbols and border styles as well as color. The board supports keyboard play and reduced motion.
+There are no accounts, analytics, ads, or third-party runtime scripts. Local and demo progress stays in localStorage. Online moves and opaque player keys go only to the product-owned room service. Expired rooms are removed from its SQLite database.
+
+Sun and Moon use symbols and border styles as well as color. The board supports keyboard and touch input. Reduced-motion mode removes movement and transitions. The saved demo works offline after its first visit; online rooms need a connection.
 
 ## Project notes
 
 - `.factory/brief.json` records the product scope.
 - `.factory/design.md` records the visual system and asset provenance.
-- `.factory/claims.json` maps each product claim to a test.
+- `.factory/claims.json` maps each visitor-facing claim to one browser test.
 - `.factory/demo.md` documents the isolated sample mode.
-- `.factory/handoff.md` records verification and remaining work.
-
-## Known gap
-
-The brief calls for remote invitation rooms with server-validated turns. This work order deploys a static site, so v1 provides a seeded setup link and same-screen play. A product-owned WebSocket service is required before describing play as remote multiplayer.
+- `.factory/handoff.md` records verification and deployment evidence.
 
 ## License
 

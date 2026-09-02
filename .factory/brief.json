@@ -2,7 +2,7 @@
   "slug": "first-move-friends",
   "title": "First Move Friends",
   "artifact_class": "browser-game",
-  "summary": "Play a guided 4×4 lantern duel with a friend in 6–10 minutes.",
+  "summary": "Play a guided 4×4 lantern duel with a friend on one screen or two.",
   "user": "Casual pairs who want a small browser tile game they learn during the first real match.",
   "smallest_useful_product": "A turn-based 4x4 lantern-placement duel with three guided opening moves, a public goal card, shuffled tile order, and quick rematches.",
   "monetization": "free",

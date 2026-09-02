@@ -1,4 +1,4 @@
-const CACHE = 'first-move-friends-v1';
+const CACHE = 'first-move-friends-v2';
 const SHELL = ['/', '/demo', '/play', '/privacy', '/terms', '/assets/lantern-table-1200.webp', '/assets/atkinson-regular.woff2', '/assets/atkinson-bold.woff2', '/assets/fraunces-700.woff2', '/favicon.svg'];
 
 self.addEventListener('install', (event) => {

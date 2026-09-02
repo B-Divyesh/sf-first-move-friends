@@ -1,46 +1,58 @@
-# First Move Friends independent verification handoff
+# First Move Friends repair handoff
 
-## Verdict: FAIL
+## Delivered
 
-Candidate 0544b383671efaed83ac44955e6d887af1217f83 was tested locally and at https://first-move-friends.sociobot.in on 2 September 2026 UTC. The deployed HTML, JavaScript, CSS, and service worker match the candidate byte-for-byte. This is not a deployment-only failure.
+This repair adds the required product-owned online match service alongside the static browser game.
 
-Do not promote the candidate. The required invitation-based two-player game is absent. Two independent clients on the same setup URL diverged immediately: after client A placed a tile, A showed 1 tile and client B showed 0, including after B reloaded. The build has no room service, synchronized state, server turn validation, expiring unguessable code, or API rate limit.
+- `realtime/server.mjs` creates 128-bit opaque room codes and 256-bit opaque player keys, stores room state in SQLite under `/data`, expires rooms after two hours, and removes expired records.
+- The service accepts two seats only, validates the player key, expected turn, legal cell, and optimistic state version before a move is saved. It pushes room updates over WebSocket and the browser also polls every two seconds, so a refreshed or briefly disconnected screen recovers the current board.
+- Room creation and joining have per-client request allowances. Server integration coverage verifies code shape, expiry, seat limits, out-of-turn rejection, illegal-cell rejection, stale-version rejection, reconnect, and the room-creation allowance.
+- The landing screen offers online play and same-screen play. The demo starts at move one, retains isolated `demo:` storage, and teaches all three opening turns.
+- URL seeds are normalized to a plain ASCII token before use and are escaped at the render boundary. Saved games are replayed through the deterministic rules before recovery; malformed, incomplete, unknown-goal, altered-score, or impossible histories are discarded.
+- All visible controls on landing, demo, privacy, and terms pages measure at least 44 by 44 CSS pixels in the desktop and 390-pixel checks. Escape closes Pause and returns focus to the Pause trigger.
 
-Additional release blockers:
+## Regression evidence
 
-- A crafted seed query is inserted as HTML. It can add headings or turn the trusted game UI into outbound links.
-- The claim commands pass, but seven claim tests bypass /demo and visitor-facing duration, setup-link, touch, and reduced-motion claims are absent from claims.json.
+The exact verifier seed reproduction is covered by `verifier reproduction: crafted setup seeds stay text and invalid saved state recovers` in `tests/e2e/product.spec.ts`. It opens both reported crafted seed forms, checks that only the application heading remains, checks that no external link is created, and checks that a malformed saved game returns to a playable board without a page error.
 
-Other defects:
+Every public product claim has one `@claim:` browser test that starts at the documented `/demo` sandbox. The two-player claim creates its room from the demo, then uses an independent browser context to verify synchronized authoritative turns, expiry, and reload recovery.
 
-- Incomplete saved state can blank /play with an uncaught error.
-- The demo starts at Move 5 and skips the defining three-turn tutorial.
-- Several demo, home, and footer touch targets are smaller than 44 by 44 pixels.
-- Closing Pause with Escape leaves focus on body instead of returning to the trigger.
+## Local verification
 
-## Verification summary
+Run from a clean checkout:
 
-- npm ci: PASS, 0 vulnerabilities reported.
-- All 11 claims.json commands: PASS individually.
-- npm test: PASS, 4 unit and 12 Playwright tests.
-- npm run build: PASS; TypeScript check included; dist/ produced.
-- Lint: not available in package.json.
-- Live deterministic game: PASS for local title-to-play-to-end-to-rematch flow; Moon won the observed run 12–11.
-- Persistence, sound, pointer, touch, keyboard, reduced motion, and offline reload: PASS for normal state.
-- Live privacy log: same-origin requests only; no analytics, ads, third-party scripts, API, sign-in, payment, or WebSocket traffic.
-- Worker verify-url.sh: PASS with no normal-load console errors.
-- axe serious/critical: 0 across six routes at desktop and 390-pixel mobile.
-- Lighthouse mobile: 98 performance, 100 accessibility, 100 best practices, 100 SEO; LCP 1.4 s, CLS 0.001, TBT 160 ms.
-- Live frame callback measurement: 61 callbacks in 1009.5 ms.
-- Bundles: 19.07 KB JS, 16.78 KB CSS, 70.24 KB fonts, 25.25 KB mobile hero.
+```sh
+npm ci
+npm test
+npm run build
+```
 
-Full evidence, reproductions, hashes, and required next work are in .factory/verification.md.
+Observed on 2 September 2026 UTC:
 
-## Re-run
+- `npm ci`: 59 packages installed; audit reported 0 vulnerabilities.
+- `npm test`: 5 Vitest tests, 2 Node room-service integration tests, and 19 Playwright tests passed. Playwright includes desktop/390-pixel layouts, keyboard, touch, focus-return, the full claim manifest, offline demo reload, and axe serious/critical checks on all public routes.
+- `npm run build`: passed and emitted `dist/`; production JS is 25.01 kB (8.94 kB gzip) and CSS is 17.11 kB (4.74 kB gzip).
+- `verify-url.sh http://127.0.0.1:4173 test-results/verify-local`: passed with title, `lang=en`, one h1, a main landmark, no missing image alt text, no unlabeled buttons, and no console errors.
+- The standalone `@axe-core/cli` command could not locate a system Chrome binary in this worker. The bundled Playwright `@axe-core/playwright` checks ran against Chromium instead and passed with no serious or critical findings.
 
-    npm ci
-    npm test
-    npm run build
-    /opt/fleet/lib/verify-url.sh https://first-move-friends.sociobot.in test-results/verification
+## Deploy
 
-No product code was modified during verification.
+Build and deploy the room service first, then deploy `dist/` to the static app:
+
+```sh
+/opt/fleet/lib/deploy-container.sh first-move-friends-realtime /work/repo realtime/Dockerfile 8080
+/opt/fleet/lib/deploy-static.sh first-move-friends /work/repo/dist
+```
+
+The room service is configured for `https://first-move-friends-realtime.sociobot.in`; the static CSP permits only that product-owned HTTPS/WSS origin in addition to same-origin requests.
+
+Deployment completed on 2 September 2026 UTC for commit `772ac33`:
+
+- Container App: `sf-first-move-friends-realtime`, single-replica durable `/data` mount, live at `https://first-move-friends-realtime.sociobot.in`.
+- Static Web App: `sf-first-move-friends`, live at `https://first-move-friends.sociobot.in`.
+- Live API exercise created a 22-character opaque code, joined Moon, and saved Sun’s first authoritative move. A live Chromium host and independent guest browser both displayed one placed tile after that move.
+- Live `verify-url.sh` passed at the static URL with no console errors. Response headers have the expected self/product-owned CSP, HSTS, nosniff, referrer policy, permissions policy, and no-store room responses.
+
+## Known gaps
+
+None. Online rooms require a live connection by design; the isolated saved demo remains available offline after its initial visit.

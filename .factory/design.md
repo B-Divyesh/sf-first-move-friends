@@ -42,6 +42,7 @@ An 8 px base rhythm drives spacing (`8, 16, 24, 32, 48, 64, 96`). Controls are a
 - The first three turns expose one instruction at a time: choose a centre cell, touch the first tile, then make the first scored pattern.
 - Keyboard players use arrow keys to move between cells and Enter or Space to place. Pointer and touch use the same visible cells.
 - A turn is validated by the deterministic core before the board changes.
+- In online rooms, Sun and Moon each receive an opaque player key. The room service validates the player, turn, legal cell, and state version before broadcasting a move.
 
 ## Motion policy
 
@@ -49,7 +50,7 @@ Motion communicates placement and turns only. UI transitions run 160–260 ms us
 
 ## Difficulty and session curve
 
-The first three moves restrict legal cells and teach one rule per turn. Moves 4–8 allow any empty cell touching the group. The final eight moves reward planning around the public goal and the known next tile. A complete match has 16 placements and is intended to last 6–10 minutes between two new players. Three seeded public goals change scoring, while deterministic shuffled tile symbols change each rematch.
+The demo starts on the empty board so the first three moves teach one rule per turn. Moves 4–8 allow any empty cell touching the group. The final eight moves reward planning around the public goal and the known next tile. A complete match has 16 placements. Three seeded public goals change scoring, while deterministic shuffled tile symbols change each rematch.
 
 ## Art direction and provenance
 

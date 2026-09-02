@@ -41,6 +41,40 @@ export const GOALS: Record<GoalId, { name: string; short: string; rule: string }
 const MARKS: TileMark[] = ['ring', 'spark', 'wave'];
 const CENTRES = [5, 6, 9, 10];
 
+export function normalizeSeed(value: string): string {
+  const normalized = value.normalize('NFKC').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24);
+  return normalized || 'lanterns';
+}
+
+export function isGameState(value: unknown): value is GameState {
+  if (!value || typeof value !== 'object') return false;
+  const state = value as Partial<GameState>;
+  if (typeof state.seed !== 'string' || state.seed.length < 1 || state.seed.length > 64 || normalizeSeed(state.seed) !== state.seed) return false;
+  if (!state.goal || !Object.hasOwn(GOALS, state.goal)) return false;
+  if (!Array.isArray(state.tileOrder) || state.tileOrder.length !== 16 || state.tileOrder.some((mark) => !MARKS.includes(mark))) return false;
+  if (!Array.isArray(state.placements) || state.placements.length > 16) return false;
+  if (!state.scores || !Number.isFinite(state.scores.sun) || !Number.isFinite(state.scores.moon)
+    || !['playing', 'finished'].includes(state.status || '') || typeof state.paused !== 'boolean'
+    || !Number.isInteger(state.rematch) || state.rematch! < 0) return false;
+
+  // Saved data is untrusted. Replaying the deterministic history both checks its
+  // schema and makes sure it could have been produced by the game rules.
+  let replay = createGame(state.seed, state.rematch!);
+  for (const placement of state.placements) {
+    if (!placement || !Number.isInteger(placement.cell)) return false;
+    const next = placeTile(replay, placement.cell);
+    if (!next) return false;
+    const actual = next.placements.at(-1)!;
+    if (placement.player !== actual.player || placement.mark !== actual.mark || placement.points !== actual.points) return false;
+    replay = next;
+  }
+  return replay.goal === state.goal
+    && replay.tileOrder.every((mark, index) => mark === state.tileOrder![index])
+    && replay.scores.sun === state.scores.sun
+    && replay.scores.moon === state.scores.moon
+    && replay.status === state.status;
+}
+
 function hashSeed(value: string): number {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -67,6 +101,7 @@ export function createSeed(): string {
 }
 
 export function createGame(seed: string, rematch = 0): GameState {
+  seed = normalizeSeed(seed);
   const random = randomFrom(hashSeed(`${seed}:${rematch}`));
   const tileOrder = Array.from({ length: 16 }, (_, index) => MARKS[index % MARKS.length]);
   for (let index = tileOrder.length - 1; index > 0; index -= 1) {
@@ -169,10 +204,5 @@ export function winnerText(state: GameState): string {
 }
 
 export function createDemoGame(): GameState {
-  let state = createGame('sample42');
-  for (let move = 0; move < 4; move += 1) {
-    const legal = legalCells(state);
-    state = placeTile(state, legal[(move + 1) % legal.length]);
-  }
-  return state;
+  return createGame('sample42');
 }
