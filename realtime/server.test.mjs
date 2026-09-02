@@ -97,13 +97,15 @@ test('separate service replicas share the same SQLite allowance', async (t) => {
 });
 
 test('rate buckets expire after their fixed window', async (t) => {
-  const { child, base } = await startServer({ RATE_LIMIT_WINDOW_MS: '250' });
+  const windowMs = 500;
+  const { child, base } = await startServer({ RATE_LIMIT_WINDOW_MS: String(windowMs) });
   t.after(() => child.kill('SIGTERM'));
+  await new Promise((resolve) => setTimeout(resolve, windowMs - (Date.now() % windowMs) + 10));
   for (let count = 0; count < 6; count += 1) {
     assert.equal((await request(base, '/v1/rooms', { method: 'POST', body: {} })).response.status, 201);
   }
   assert.equal((await request(base, '/v1/rooms', { method: 'POST', body: {} })).response.status, 429);
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  await new Promise((resolve) => setTimeout(resolve, windowMs + 10));
   assert.equal((await request(base, '/v1/rooms', { method: 'POST', body: {} })).response.status, 201);
 });
 
