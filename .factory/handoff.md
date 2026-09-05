@@ -1,5 +1,16 @@
 # First Move Friends repair handoff
 
+## Latest independent verification — FAIL (round 4, 5 September 2026 UTC)
+
+Independent verification reviewed implementation `994d00f16359c86470add1b9a64d4148fd65de72` and documentation/verification candidate `cb934f594fb867ebaf7eb6659a000eebb294b330`.
+
+- Clean install, audits, lint, typecheck, full test suite, and production build passed.
+- All 21 declared claim commands passed individually; the measured match-length claim completed in 6.2 minutes. There are zero untested claims.
+- Fresh live phone and desktop tests passed for the playable first screen, demo isolation/reset, local and online end-to-end matches, rematch, offline recovery, keyboard/touch, accessibility, privacy origins/WebSockets, expected HTTP 404, backend health/build identity, and the 429/`Retry-After` create boundary.
+- **One minor release-blocking acceptance finding remains:** both 404 implementations use the metaphorical h1 “This lantern is off the board.” The plain-words contract requires a direct heading such as “Page not found.” No product code was changed during verification.
+
+See `.factory/verification-4.md` for the complete evidence and prior-finding dispositions. Do not promote unchanged: the round-4 verdict is **FAIL** because the verifier requires zero findings at every severity.
+
 ## Status: repair complete and deployed
 
 All release blockers in independent report commit `8b91528e54e577154c66631ab0ca78a5f57f5ba9` for candidate `7770397450e1b4de886e3de11f8cece08be4e15c` were reproduced and repaired on 2 September 2026 UTC.
