@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-09-05T19:28:46.839Z",
+  "checkedAt": "2026-09-05T20:36:09.809Z",
   "appUrl": "https://first-move-friends.sociobot.in",
   "roomUrl": "https://first-move-friends-realtime.sociobot.in",
   "desktop": {
@@ -33,7 +33,7 @@
   "localMatch": {
     "restoredPlacements": 1,
     "completedPlacements": 16,
-    "result": "Moon wins 13–10",
+    "result": "Moon wins 13–11",
     "rematchPlacements": 0
   },
   "onlineMatch": {
@@ -60,5 +60,5 @@
   },
   "errors": [],
   "ok": true,
-  "finishedAt": "2026-09-05T19:29:00.034Z"
+  "finishedAt": "2026-09-05T20:36:22.239Z"
 }

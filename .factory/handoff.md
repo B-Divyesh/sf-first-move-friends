@@ -1,120 +1,101 @@
-# First Move Friends repair handoff
+# First Move Friends repair-4 handoff
 
-## Latest independent verification — FAIL (round 4, 5 September 2026 UTC)
+## Status
 
-Independent verification reviewed implementation `994d00f16359c86470add1b9a64d4148fd65de72` and documentation/verification candidate `cb934f594fb867ebaf7eb6659a000eebb294b330`.
+Repair complete and deployed on 5 September 2026 UTC.
 
-- Clean install, audits, lint, typecheck, full test suite, and production build passed.
-- All 21 declared claim commands passed individually; the measured match-length claim completed in 6.2 minutes. There are zero untested claims.
-- Fresh live phone and desktop tests passed for the playable first screen, demo isolation/reset, local and online end-to-end matches, rematch, offline recovery, keyboard/touch, accessibility, privacy origins/WebSockets, expected HTTP 404, backend health/build identity, and the 429/`Retry-After` create boundary.
-- **One minor release-blocking acceptance finding remains:** both 404 implementations use the metaphorical h1 “This lantern is off the board.” The plain-words contract requires a direct heading such as “Page not found.” No product code was changed during verification.
+- Live game: <https://first-move-friends.sociobot.in>
+- Product room service: <https://first-move-friends-realtime.sociobot.in>
+- Deployed static implementation: `7561e61b1ff06b5ac2c940afe255e375aee82055`
+- Unchanged room-service implementation: `994d00f16359c86470add1b9a64d4148fd65de72`
+- Documentation and evidence: the repository `HEAD` containing this handoff
 
-See `.factory/verification-4.md` for the complete evidence and prior-finding dispositions. Do not promote unchanged: the round-4 verdict is **FAIL** because the verifier requires zero findings at every severity.
+## Round-4 finding repaired
 
-## Status: repair complete and deployed
+Both missing-page render paths now use the direct h1 “Page not found.” The static 404 retains HTTP 404, the shared header/navigation/main/footer, its explanation, and its route home. The SPA fallback retains focus handling and route metadata.
 
-All release blockers in independent report commit `8b91528e54e577154c66631ab0ca78a5f57f5ba9` for candidate `7770397450e1b4de886e3de11f8cece08be4e15c` were reproduced and repaired on 2 September 2026 UTC.
+The new browser regression opens both `/missing-page` and `/404.html`. It checks the rendered level-one heading, explanation, and working home link. This is an outcome check; it does not inspect source strings. The check failed before the copy repair and passed afterward.
 
-- Static product: <https://first-move-friends.sociobot.in>
-- Product-owned room service: <https://first-move-friends-realtime.sociobot.in>
-- Deployed backend source: `994d00f16359c86470add1b9a64d4148fd65de72`
-- Healthy revision: `sf-first-move-friends-realtime--0000013`
-- Image: `sociobotregistry.azurecr.io/sf-first-move-friends-realtime:994d00f16359`
-- Deployment class remains a static browser game. The existing product-owned room service supplies the brief's online mode.
+The 404 copy is included in `.factory/copy-audit.md`. `.factory/catalog-description.txt` now contains a 68-byte verb-first description and is copied to `/work/.evidence/catalog-description.txt`.
 
-## Blockers repaired
+## Clean local verification
 
-| Finding | Root-cause repair | Regression and evidence |
-| --- | --- | --- |
-| The 6–10 minute test proved arithmetic, not elapsed time | The claim now completes eight player actions at a measured 45-second pair pace. Match start/finish timestamps persist, and the end screen reports the measured duration. | `@claim:match-length` uses browser wall time and passed in the 7.1-minute full browser run. |
-| Local pass-and-play was advertised but unregistered | Added the `local-pass-and-play` manifest entry and a complete local flow: alternate players, refresh, finish, verify score, rematch. | `@claim:local-pass-and-play`; live result `Sun wins 18–14`, reload restored one placement, rematch returned to zero. |
-| The privacy claim did not observe WebSockets | The browser regression records WebSocket creation as well as HTTP requests and confirms connected rooms do not keep polling. | `@claim:privacy-approved-origins`; live two-browser flow observed two sockets only at `wss://first-move-friends-realtime.sociobot.in`, 37 received frames, and recorded no payloads. |
-| Live SQLite had no durable `/data` mount | The fleet-managed Azure Files share is mounted at `/data`. SQLite runs transactionally in a local working directory and atomically replaces its durable snapshot after every mutation, avoiding Azure Files lock incompatibility. | `@claim:durable-room-restart`; a controlled live create/join/move, revision restart, and GET restored version 1 with one placement. Azure reports volume `sf-first-move-friends-re-b5f819` mounted at `/data`. |
-| Request allowances were global | Rate keys now include a hash of the right-most ingress-observed client address. Untrusted left-side forwarded hops cannot rotate identity. Buckets persist in SQLite across replicas. | `@claim:client-rate-limits`, the two-replica allowance test, expiry test, and response-header tests all pass. |
-| The game was below the 390×844 first viewport | The mobile composition puts the goal, scores, turn, and compact board before secondary mode controls. | Regression requires the complete board bottom to be at or above 844 px. Live measured bottom: 840.3 px. |
-| Nested complementary landmark | The turn panel is a styled non-landmark container, leaving landmarks properly nested. | Axe found zero violations on the live home at 390 px and on Privacy, Terms, the explicit 404, and an unknown route. |
-| The real 404 lacked the shared structure | `404.html` now has the product header, navigation, one h1, main, footer, metadata, focus treatment, and reduced-motion policy. Static Web Apps rewrites unknown responses to it without changing the 404 status. | Live unknown URL returned HTTP 404 with header/nav/main/footer and zero axe violations. |
-| Win/loss/restart needed fresh proof | Both local and remote flows fill all 16 cells, compute a result, show the end screen, and reset synchronously. | Live local result: `Sun wins 18–14`; live online result: `Moon wins 24–16`; both rematches reset to zero placements. |
-
-Pre-fix reproduction confirmed the original failures before repair: the mobile board started at y=1037.45 px, axe reported `landmark-complementary-is-top-level`, the 404 lacked route structure, live `/data` had no mount, rate buckets were global, and the duration test completed in seconds using constants.
-
-## Clean verification
-
-From the final tree:
+Run from the repository root:
 
 ```sh
 npm ci
 npm audit --audit-level=high
+(cd realtime && npm ci && npm audit --audit-level=high)
 npm run lint
 npm run typecheck
 npm test
 npm run build
-(cd realtime && npm ci && npm audit --audit-level=high)
-npm run verify:live
 ```
 
 Results:
 
-- Clean install: 141 packages; zero vulnerabilities.
-- Core: 5/5 passed.
-- Room/config integration: 9/9 passed.
-- Browser: 25/25 passed in 7.1 minutes.
-- Every registered claim has exactly one tagged regression; all claim paths pass inside the full suite.
-- Lint and TypeScript: passed.
-- Realtime clean install: 1 package; zero vulnerabilities.
-- Production build: JS 26.73 kB raw / 9.43 kB gzip; CSS 17.99 kB raw / 4.97 kB gzip; `dist/` produced.
-- Root and room-service package audits: zero vulnerabilities.
+- Root install: 141 packages; zero vulnerabilities.
+- Room-service install: 1 package; zero vulnerabilities.
+- Lint and TypeScript checks passed.
+- `npm test`: 5/5 deterministic core tests, 9/9 room/config integration tests, and 26/26 browser tests passed in 7.1 minutes.
+- All 21 commands in `.factory/claims.json` passed individually from the clean setup. The elapsed-time match claim passed in 6.2 minutes.
+- Production build emitted `dist/`: JavaScript 26.72 kB raw / 9.42 kB gzip; CSS 17.99 kB raw / 4.97 kB gzip.
+- Local `/opt/fleet/lib/verify-url.sh` passed in a fresh browser with one h1, one main, `lang=en`, complete labels/alt text, and no console errors.
 
-## Live browser and accessibility evidence
+Playwright’s route check runs axe on home, demo, privacy, terms, the SPA fallback, and static 404 at desktop and 390 px. It reported zero violations. Dedicated tests also passed for keyboard and touch play, visible focus, 44 px targets, 200% text, reduced motion, non-color state cues, pause focus return, offline reload, and recovery errors.
+
+## Live browser evidence
 
 `npm run verify:live` passed against both production origins with no unexpected console or page errors.
 
-- Desktop: HTTP 200, one h1, one main.
-- Mobile: 390×844, complete board bottom 840.3 px.
-- Keyboard: Tab reached the board, ArrowRight moved focus, Space placed a turn. The browser regression also covers Enter.
-- Text resize: 200% retained the heading and board without horizontal overflow.
-- Offline/update: a fresh service worker controlled `/demo`; an offline reload showed the offline state and accepted a move.
-- Local recovery/end/restart and two-browser online end/restart passed.
-- Axe: zero violations across every live route checked.
-- `/opt/fleet/lib/verify-url.sh`: title, `lang=en`, one h1, main, alt text, labels, and console checks all passed; load measured 689 ms.
-- Reduced-motion, touch, focus-return, non-color player cues, 44 px targets, and 50+ fps each pass a dedicated browser regression.
+- A fresh 1440×900 browser showed one h1 and one main.
+- A fresh 390×844 touch browser showed the goal, score, turn, and full board before scrolling; board bottom was 840.3 px.
+- First read: job “Play a tile duel you learn together”; audience “For pairs who want a short game without accounts or a rulebook wall”; first action “Try it with sample data.”
+- The one-click sample kept its “Demo — sample data” banner through a 16-placement result (`Moon wins 25–12`). Reset returned to zero placements and did not change seeded `real:` storage.
+- Local play restored one placement after reload, finished `Moon wins 13–11`, and rematched to an empty board.
+- Two independent online clients synchronized all 16 placements, finished `Moon wins 24–16`, and rematched to an empty board. Network evidence contains only the static and product-owned room origins plus two product-owned WebSockets.
+- A controlled offline `/demo` reload remained playable.
+- Privacy, Terms, `/404.html`, and an unknown route had zero axe violations.
+- Fresh desktop and phone unknown-route checks returned HTTP 404, rendered “Page not found,” kept the route home, and produced no unexpected browser errors.
+- `/opt/fleet/lib/verify-url.sh` passed live in 586 ms with one h1, one main, `lang=en`, complete labels/alt text, and no console errors.
 
-Evidence is in [repair-artifacts](repair-artifacts), including live desktop/mobile, offline and end-screen captures, [live-verification.json](repair-artifacts/live-verification.json), and Lighthouse reports.
+Evidence is in `.factory/repair-artifacts/`, including the phone and desktop first screens, demo/local/online end screens, phone and desktop 404 screens, offline state, `live-verification.json`, URL-verifier output, and Lighthouse reports.
 
-## Performance and response policy
+## Performance, policy, and live identity
 
-Lighthouse 13.4.1 mobile at 08:02 UTC scored:
+Lighthouse 13.4.1 mobile scores were Performance 100, Accessibility 100, Best Practices 100, and SEO 100. FCP was 1.1 s, LCP 1.4 s, total blocking time 0 ms, CLS 0.001, and total transfer 110 KiB.
 
-- Performance 100
-- Accessibility 100
-- Best Practices 100
-- SEO 100
-- FCP 1.1 s, LCP 1.4 s, TBT 0 ms, CLS 0.001, transfer 112,351 bytes
+Final local/live hashes match:
 
-Static responses include HSTS, `nosniff`, strict-origin referrer policy, restrictive permissions policy, and a CSP whose `connect-src` contains only self plus the product room HTTPS/WSS origins. The room service uses `no-store`, `default-src 'none'`, product-origin CORS, and `X-Build-Id`.
-
-The final `dist/` and live static files match byte-for-byte:
-
-| File | SHA-256 |
+| Artifact | SHA-256 |
 | --- | --- |
-| `index.html` | `5cd7c8f8fafe076324930fe2caf5e81584cc412d94e886681e0a8deb7229a078` |
-| JS | `103f9899420186a11c6db662b8ed59821d153f429bec470aed7cf0a760292192` |
-| CSS | `853b2e2f9af7228badc732afc64733ef74780a627d7a700b55071a30b0a141eb` |
-| `sw.js` | `97939fd88fa9452f06f3950a4422003b5bbc85dffd9f1e8f3f32d99403114f5f` |
-| `404.html` | `e2b7de805a3de88699b1ac60cecc488a02b7762047a00ccc32da60e31fdf2368` |
+| `index.html` | `4d8aa80da539d36292a0a2e1f6f41e71acbd5aa82de8c5254f36516cfe3e2203` |
+| `assets/index-COEcEAAP.js` | `3621a2adf991d69c3bfe18430da75900146458186a41598a174d2cad941243ca` |
+| `404.html` | `3b6582560f8fa330c72cf6e38734d39ce8e9e12a8d707af456dcaf396a1d11e4` |
 
-## Deployment evidence
+The live JavaScript contains the production room-service origin and no localhost room URL. The room health endpoint returns 200 and build id `994d00f16359c86470add1b9a64d4148fd65de72`. A fresh allowance check returned 201 for six creates, then 429 with `Retry-After: 60` on the seventh.
 
-The static artifact was deployed with the work order's static deployment script. The room service was deployed with `deploy.data_dir=/data`; the scoped app reports:
+The first upload after testing mistakenly used the Playwright-built `dist/`, whose room URL targets localhost. The live verifier caught it before handoff. A clean production build was created and redeployed; final live hashes, online play, and privacy-origin checks above prove the corrected artifact is active. Always run `npm run build` after Playwright and immediately before static deployment.
 
-- single active revision mode;
-- minimum and maximum one replica;
-- one healthy running replica;
-- volume `data` mounted at `/data` from product share `sf-first-move-friends-re-b5f819`;
-- `/health` body and `X-Build-Id`: `994d00f16359c86470add1b9a64d4148fd65de72`.
+## Earlier findings disposition
 
-No unrelated infrastructure, service settings, secrets, databases, or storage were accessed.
+| Earlier finding | Current evidence |
+| --- | --- |
+| No remote invitation play | Two fresh live clients completed and rematched a synchronized game. |
+| Unsafe seed rendering or malformed saved state | Core and browser recovery regressions pass. |
+| Demo skipped the opening; reset crossed namespaces | The live sample starts empty, teaches the opening, and leaves `real:` data unchanged after reset. |
+| Small targets or lost pause focus | Target-size and pause-focus browser regressions pass. |
+| Invalid invites or service outages lacked recovery | Browser recovery regressions pass with direct actions. |
+| Missing or incomplete public claims | All 21 declared commands pass; the registered-tag parity test passes. |
+| Duration was computed; local mode was unregistered | The 6.2-minute elapsed test and complete local-mode claim pass. |
+| Privacy test missed WebSockets | Local and live tests record product-owned WebSocket origins. |
+| Global request allowances | Isolated-client/two-replica tests pass; live boundary is 6×201 then 429 with `Retry-After: 60`. |
+| Room state was not durable | Restart persistence passes against the same SQLite directory; deployed backend identity is unchanged. |
+| Phone first screen hid the game | The fresh live board ends at 840.3 px in the 844 px viewport. |
+| Nested complementary landmark | Axe reports zero violations on every checked route. |
+| 404 lacked shared structure or correct status | The live unknown route has the shared skeleton and returns HTTP 404. |
+| 404 used a metaphorical heading | Fixed in both render paths; browser and live checks read “Page not found.” |
 
 ## Known gaps and next step
 
-No known release-blocking product gap remains. The independent verifier should re-run this handoff against the deployed repair before promotion.
+No known product defect remains. The room service was not rebuilt or restarted for this static-only copy repair; its existing single-replica durable `/data` deployment remains in place. Independent verification should review implementation `7561e61` and the final evidence commit before promotion.
