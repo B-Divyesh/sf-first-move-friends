@@ -1,14 +1,29 @@
-# First Move Friends repair-4 handoff
+# First Move Friends verification-5 handoff
 
 ## Status
 
-Repair complete and deployed on 5 September 2026 UTC.
+Verification-5 passed on 5 September 2026 UTC. The product is ready for promotion.
 
 - Live game: <https://first-move-friends.sociobot.in>
 - Product room service: <https://first-move-friends-realtime.sociobot.in>
 - Deployed static implementation: `7561e61b1ff06b5ac2c940afe255e375aee82055`
 - Unchanged room-service implementation: `994d00f16359c86470add1b9a64d4148fd65de72`
-- Documentation and evidence: the repository `HEAD` containing this handoff
+- Documentation and evidence reviewed: `452e451a25691fdf14829466eb6e66d91400293f`
+
+## Verification-5 summary
+
+Independent QA reviewed static implementation `7561e61b1ff06b5ac2c940afe255e375aee82055`; the unchanged deployed room service identified itself as `994d00f16359c86470add1b9a64d4148fd65de72`.
+
+- Verdict: **PASS** — zero findings and zero untested claims.
+- Fresh desktop and 390×844 phone contexts showed the plain job, audience, first demo action, and playable board before scrolling.
+- The demo label persisted; reset returned the sample to zero placements while preserving `real:` test values.
+- Fresh live local and two-client online games each completed 16 placements, reached end screens, and rematched to empty boards. The online run used only product-owned HTTPS and WSS origins.
+- Invalid invite, service-outage recovery, keyboard, touch, focus, reduced motion, text resize, offline reload, legal routes, and both 404 paths passed. Unknown routes deliberately returned HTTP 404 and rendered “Page not found.”
+- All clean gates passed: root and room-service audits (zero vulnerabilities), lint, typecheck, build, 5 core tests, 9 server tests, and 26 browser tests. Every one of the 21 commands in `.factory/claims.json` was then run separately and passed; the measured match-duration claim took 6.2 minutes.
+- Live `/health` returned the backend build identity above. A live room-create boundary returned 201 six times, then 429 with `Retry-After: 60`.
+- A fresh production build matched the live `index.html` and JavaScript asset hashes.
+
+Read the complete independent record in `.factory/verification-5.md`. It is copied to `/work/.evidence/qa-report.md`, with the matching result JSON at `/work/.evidence/qa-result.json`.
 
 ## Round-4 finding repaired
 
