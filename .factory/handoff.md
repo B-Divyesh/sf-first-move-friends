@@ -1,14 +1,28 @@
-# First Move Friends verification-5 handoff
+# First Move Friends review-1 handoff
 
 ## Status
 
-Verification-5 passed on 5 September 2026 UTC. The product is ready for promotion.
+Review-1 passed on 5 September 2026 UTC. The product is ready for promotion.
 
 - Live game: <https://first-move-friends.sociobot.in>
 - Product room service: <https://first-move-friends-realtime.sociobot.in>
 - Deployed static implementation: `7561e61b1ff06b5ac2c940afe255e375aee82055`
 - Unchanged room-service implementation: `994d00f16359c86470add1b9a64d4148fd65de72`
-- Documentation and evidence reviewed: `452e451a25691fdf14829466eb6e66d91400293f`
+- Documentation and prior verification reviewed: `d76c194de218137243b3b4e0985f20ead352999f`
+
+## Review-1 summary
+
+- Verdict: **PASS** — zero findings and zero untested claims.
+- Fresh desktop and 390×844 phone contexts showed the job, audience, first demo action, and full board before scrolling.
+- Demo reset preserved separate real local values. Fresh local and independent two-client online games both completed 16 placements, showed actual end screens, and rematched to empty boards.
+- Live health matched the backend implementation. Room isolation returned 401 for a cross-room player key. Six room creations returned 201 and the seventh returned 429 with `Retry-After: 60`.
+- `npm run verify:live`, the URL structure check, and axe checks passed. Unknown routes deliberately returned a structured, accessible HTTP 404 with “Page not found.”
+- From a clean checkout, both audits, lint, typecheck, `npm test` (5 core, 9 server, 26 browser), and build passed. All 21 claim commands passed separately, including the measured 6–10 minute match.
+- The final local production index, JavaScript, and CSS hashes exactly matched the live static files.
+
+Read `.factory/review-1.md` for the complete review evidence. It is also copied to `/work/.evidence/qa-report.md` with matching `/work/.evidence/qa-result.json`.
+
+## Verification-5 record
 
 ## Verification-5 summary
 
