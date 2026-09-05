@@ -397,7 +397,7 @@ function textPage(kind: 'privacy' | 'terms'): string {
 }
 
 function notFound(): string {
-  return `${header()}<main id="main" class="not-found"><div class="lost-lantern" aria-hidden="true"><span></span></div><span class="eyebrow">404</span><h1 tabindex="-1">This lantern is off the board</h1><p>The page may have moved, or the link may be incomplete.</p><a class="button primary" href="/" data-route>Return to the game</a></main>${footer()}`;
+  return `${header()}<main id="main" class="not-found"><div class="lost-lantern" aria-hidden="true"><span></span></div><span class="eyebrow">404</span><h1 tabindex="-1">Page not found</h1><p>The page may have moved, or the link may be incomplete.</p><a class="button primary" href="/" data-route>Return to the game</a></main>${footer()}`;
 }
 
 function setMetadata(path: string): void {

@@ -365,6 +365,15 @@ test('routes have accessible structure at desktop and 390px mobile', async ({ pa
   }
 });
 
+test('missing pages explain the error plainly and provide a route home', async ({ page }) => {
+  for (const path of ['/missing-page', '/404.html']) {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Page not found');
+    await expect(page.getByText('The page may have moved, or the link may be incomplete.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Return to the game' })).toHaveAttribute('href', '/');
+  }
+});
+
 test('the 390px cold first viewport shows game goal, score, turn, and board cells', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');

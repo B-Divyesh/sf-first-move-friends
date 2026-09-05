@@ -1,6 +1,6 @@
 # Landing page copy audit
 
-Audited 2026-09-02. Counts treat hyphenated terms and numerals as one word. No sentence exceeds 22 words. No copy uses a banned word from the plain-words contract.
+Audited 2026-09-05. Counts treat hyphenated terms and numerals as one word. No sentence exceeds 22 words. No copy uses a banned word from the plain-words contract.
 
 | Copy | Words | Result |
 | --- | ---: | --- |
@@ -57,6 +57,14 @@ Audited 2026-09-02. Counts treat hyphenated terms and numerals as one word. No s
 | Check your connection, then try this room again. | 8 | Pass |
 | Try this room again | 4 | Pass |
 | Match time: 6 min 04 sec | 6 | Pass |
+
+## 404 route copy
+
+| Copy | Words | Result |
+| --- | ---: | --- |
+| Page not found | 3 | Pass |
+| The page may have moved, or the link may be incomplete. | 11 | Pass |
+| Return to the game | 4 | Pass |
 
 ## Terminology
 
