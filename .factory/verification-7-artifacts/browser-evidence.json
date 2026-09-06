@@ -1,0 +1,110 @@
+{
+  "checked_at": "2026-09-06T08:20:07Z",
+  "live_url": "https://first-move-friends.sociobot.in",
+  "static_implementation": "cbf3184256899d41fe7141f89e25bd6808216362",
+  "documentation_candidate": "7322284b59c11b3e05890c6e3e6c44d40c9197da",
+  "realtime_implementation": "994d00f16359c86470add1b9a64d4148fd65de72",
+  "first_screen": {
+    "job": "Play a tile duel you learn together",
+    "audience": "For pairs who want a short game without accounts or a rulebook wall.",
+    "first_action": "Try it with sample data",
+    "chromium_phone_board_bottom_px": 840.3,
+    "webkit_phone_board_bottom_px": 835.2645263671875,
+    "phone_viewport_height_px": 844
+  },
+  "demo": {
+    "entry_clicks": 1,
+    "banner": "Demo — sample data, nothing is saved to your real game.",
+    "placements_after_first_touch": 2,
+    "placements_after_reset": 0,
+    "real_marker_after_reset": "unchanged",
+    "end_screen": "Moon wins 25–12",
+    "placements_after_rematch": 0
+  },
+  "local_match": {
+    "placements_restored_after_reload": 1,
+    "completed_placements": 16,
+    "end_screen": "Sun wins 18–13",
+    "placements_after_rematch": 0
+  },
+  "online_match": {
+    "independent_clients": 2,
+    "completed_placements": 16,
+    "end_screen": "Sun wins 16–14",
+    "placements_after_rematch": 0,
+    "guest_placements_after_reload": 1,
+    "room_code_length": 22,
+    "http_origins": [
+      "https://first-move-friends.sociobot.in",
+      "https://first-move-friends-realtime.sociobot.in"
+    ],
+    "websocket_origins": [
+      "wss://first-move-friends-realtime.sociobot.in"
+    ]
+  },
+  "interaction": {
+    "keyboard_tab_arrow_space": true,
+    "touch_390px": true,
+    "pause_escape_focus_returned": true,
+    "sound_persisted_after_reload": true,
+    "reduced_motion_transition_seconds": 0.00001,
+    "text_resize_200_percent": true,
+    "undersized_visible_targets": 0,
+    "desktop_chromium_frame_samples": [62, 61, 61]
+  },
+  "offline_and_update": {
+    "controlled_offline_reload_playable": true,
+    "service_worker_update_completed": true,
+    "active_worker_state": "activated",
+    "waiting_worker": false
+  },
+  "routes": {
+    "normal_statuses": {
+      "/": 200,
+      "/demo": 200,
+      "/play": 200,
+      "/privacy": 200,
+      "/terms": 200,
+      "/404.html": 200
+    },
+    "unknown_route_status": 404,
+    "unknown_route_heading": "Page not found",
+    "internal_link_failures": 0,
+    "unexpected_console_or_page_errors": 0
+  },
+  "accessibility": {
+    "playwright_axe_violations": 0,
+    "standalone_axe_violations": 0,
+    "title": "First Move Friends — Play a guided tile duel",
+    "language": "en",
+    "h1_count": 1,
+    "main_count": 1,
+    "images_missing_alt": 0,
+    "buttons_missing_labels": 0
+  },
+  "backend": {
+    "health_status": 200,
+    "build_id": "994d00f16359c86470add1b9a64d4148fd65de72",
+    "cross_room_token_status": 401,
+    "room_create_statuses": [201, 201, 201, 201, 201, 201, 429],
+    "retry_after_seconds": 60,
+    "room_ttl_minutes": 120
+  },
+  "lighthouse_mobile": {
+    "performance": 100,
+    "accessibility": 100,
+    "best_practices": 100,
+    "seo": 100,
+    "first_contentful_paint_seconds": 1.1,
+    "largest_contentful_paint_seconds": 1.5,
+    "total_blocking_time_ms": 0,
+    "cumulative_layout_shift": 0.001,
+    "transfer_kib": 110
+  },
+  "live_artifact_sha256": {
+    "index.html": "c792198ba219794ffe9f54a7f292efb0169b1c83f758406b3bfd8fab886a2c84",
+    "404.html": "3b6582560f8fa330c72cf6e38734d39ce8e9e12a8d707af456dcaf396a1d11e4",
+    "assets/index-C476KrDC.js": "0a86025b8b89896b97111dfa6a74c7b34156642687be265ab213bd95a99b243a",
+    "assets/index-C_XrV5Jg.css": "ee8d9a7f90edd271efa2aa1bcab6e26f8b8dbf3734ce47ceb2d34a3f4bea3723"
+  }
+}

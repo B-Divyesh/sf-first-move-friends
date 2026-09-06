@@ -1,67 +1,71 @@
-# First Move Friends repair-5 handoff
+# First Move Friends verification 7 handoff
 
 ## Status
 
-**PASS — repaired and deployed.** The browser game is live at <https://first-move-friends.sociobot.in>.
+**PASS — independent verification completed.** The live browser game has zero findings and zero untested claims.
 
-- Implementation commit: `cbf3184256899d41fe7141f89e25bd6808216362` (`fix: keep phone preview square in webkit`).
-- Unchanged room-service implementation: `994d00f16359c86470add1b9a64d4148fd65de72`.
-- Static deployment: production `dist/` only. No backend, SQLite volume, DNS, app settings, or replica configuration changed.
-- Job: casual pairs play a guided 4×4 lantern-placement duel together without an account or rulebook wall.
-- First action: **Try it with sample data** opens the empty, guided sample match in one click.
+- Live URL: <https://first-move-friends.sociobot.in>
+- Static implementation: `cbf3184256899d41fe7141f89e25bd6808216362`
+- Room-service implementation: `994d00f16359c86470add1b9a64d4148fd65de72`
+- Documentation candidate verified: `7322284b59c11b3e05890c6e3e6c44d40c9197da`
+- Full report: `.factory/verification-7.md`
 
-## Repair
+No product code, deployment, service configuration, or real user data changed. This handoff and the verification evidence are the only repository changes.
 
-Verification-6 found that WebKit 26.0 made the home-preview board 10 px taller than its width at 390×844. The board bottom landed at `845.2638549804688`, clipping 1.26 px.
+## What was verified
 
-`.board` now derives its square from its definite width (`aspect-ratio: 1`) rather than a percentage height in the padded board shell. This avoids WebKit resolving the percentage against the shell border box.
+Fresh live desktop Chromium, 390×844 Chromium touch, and 390×844 WebKit 26.0 contexts showed the job, audience, first action, and complete game preview before scrolling. The repaired WebKit board bottom is `835.2645263671875px` inside the `844px` viewport.
 
-`tests/e2e/webkit-phone-layout.spec.ts` runs in a separate WebKit 26.0, touch-enabled project. It opens a fresh 390×844 home page and asserts the rendered preview board bottom is at or above the actual viewport height. This is an observable layout outcome, not a source assertion.
+The one-click sample kept its persistent sandbox label, produced Sun and automatic Moon output, reset without changing a seeded `real:` value, reached “Moon wins 25–12,” and rematched to an empty board. Fresh local and two-client online runs reached real end screens and rematched. A separate live Moon client restored the shared placement after reload.
 
-Fresh live WebKit result: board bottom `835.2645263671875` in an `844` px viewport, leaving 8.74 px visible space. A fresh Chromium desktop result ended the preview board at `788.40` px in a 1440×900 viewport. Both loaded at scroll position zero and showed:
+Keyboard, touch, pause focus, saved sound, non-color player cues, reduced motion, 200% text, offline reload, service-worker update, invalid invite, controlled outage, internal links, route titles, legal pages, expected HTTP 404, and privacy request origins passed.
 
-- Job: “Play a tile duel you learn together.”
-- Audience: “For pairs who want a short game without accounts or a rulebook wall.”
-- First action: “Try it with sample data.”
+Live backend checks passed health/build identity, cross-room rejection, two-hour expiry, and the six-success then 429 boundary with `Retry-After: 60`. SQLite cleanup, isolated allowance, and same-directory restart persistence passed locally without restarting the live service.
 
-## Verification
+## How to verify
 
-From the documented clean setup, root and room-service `npm ci` and both high-severity audits passed with zero vulnerabilities.
+Requires Node.js 22 or newer and Playwright 1.58.2 browser binaries and host libraries.
 
 ```sh
+npm ci
+(cd realtime && npm ci)
+npx playwright install webkit
+npx playwright install-deps webkit
 npm run lint
 npm run typecheck
 npm test
 npm run build
+npm run verify:live
 ```
 
-- Lint and TypeScript checks passed.
-- `npm test` passed 5 deterministic core tests, 9 room-service integration tests, 26 Chromium browser tests, and the dedicated WebKit layout regression (27 browser tests total).
-- Every one of the 21 exact commands in `.factory/claims.json` was run separately and passed. The browser wall-clock `@claim:match-length` run completed its 6–10 minute measurement rather than calculating a synthetic duration.
-- The clean production build emitted JavaScript `26.72 kB` raw / `9.42 kB` gzip and CSS `18.01 kB` raw / `4.96 kB` gzip.
-- `/opt/fleet/lib/verify-url.sh` passed against live HTTPS: HTTP 200, correct title and language, one h1, one main landmark, complete labels and image alternatives, and no browser errors.
-- The live Playwright verifier passed: fresh desktop and 390×844 contexts; sample banner/reset isolation; keyboard; 200% text; offline reload; local match/reload/rematch; two independent online clients through a 16-placement game and rematch; product-only HTTPS/WSS origins; Privacy, Terms, static 404, and the expected HTTP 404 route.
-- Live Axe checks in the product verifier found zero violations on the phone home, legal pages, static 404, and missing-route 404. Standalone `@axe-core/cli` also reported zero violations on live home.
-- Lighthouse mobile against live scored Performance 100, Accessibility 100, Best Practices 100, SEO 100; FCP 1.1 s, LCP 1.5 s, TBT 10 ms, CLS 0.001, transfer 110 KiB.
+Run each exact command in `.factory/claims.json` separately for the claim gate. The `match-length` command intentionally takes just over six minutes.
 
-## Live artifact identity
+Verification-7 results:
 
-The deployed static files match the clean production build byte-for-byte:
+- Root and room-service high-severity audits: zero vulnerabilities.
+- Core tests: 5/5.
+- Room-service tests: 9/9.
+- Browser tests: 27/27 in 7.3 minutes, including the dedicated WebKit phone regression.
+- Declared claim commands: 21/21.
+- Production output: JavaScript 26.72 kB raw / 9.42 kB gzip; CSS 18.01 kB raw / 4.96 kB gzip.
+- Live URL verifier: pass, no browser errors.
+- Standalone Axe and live Playwright Axe: zero violations.
+- Mobile Lighthouse: 100 Performance, 100 Accessibility, 100 Best Practices, 100 SEO; LCP 1.5 s; CLS 0.001.
+- Desktop Chromium frame samples: 62, 61, and 61 callbacks per second.
+
+## Live identity
+
+The clean production build matches live byte-for-byte:
 
 | Artifact | SHA-256 |
 | --- | --- |
 | `index.html` | `c792198ba219794ffe9f54a7f292efb0169b1c83f758406b3bfd8fab886a2c84` |
+| `404.html` | `3b6582560f8fa330c72cf6e38734d39ce8e9e12a8d707af456dcaf396a1d11e4` |
 | `assets/index-C476KrDC.js` | `0a86025b8b89896b97111dfa6a74c7b34156642687be265ab213bd95a99b243a` |
 | `assets/index-C_XrV5Jg.css` | `ee8d9a7f90edd271efa2aa1bcab6e26f8b8dbf3734ce47ceb2d34a3f4bea3723` |
 
-## Earlier findings disposition
+## Evidence and next steps
 
-All prior verification and review findings remain repaired: real private invitation play; server validation and reconnection; safe saved-state and seed recovery; separate empty guided sample/reset; 44 px targets; pause focus return; clear invalid-invite and outage recovery; complete registered claims with measured duration; WebSocket privacy coverage; client-isolated rate allowance; durable SQLite restart; first-screen game visibility; accessible landmark structure; and direct shared-skeleton HTTP 404 pages.
+Repository evidence is in `.factory/verification-7-artifacts/`. The required report copies are `/work/.evidence/qa-report.md` and `/work/.evidence/qa-result.json`; URL, Axe, and Lighthouse output is also under `/work/.evidence/`.
 
-The only verification-6 finding, WebKit’s 1.26 px phone-board clipping, is repaired by this release and has a WebKit-specific regression.
-
-## Evidence and known gaps
-
-Current live evidence is in `.factory/repair-artifacts/live-verification.json` and the accompanying local/online end-screen images. Cold desktop and WebKit phone captures, URL-check output, Lighthouse JSON, and the standalone Axe output are stored under `/work/.evidence/` for this repair.
-
-There are no known product gaps. The paid offer is not applicable: the researched brief defines this game as free, and the site contains no checkout or entitlement flow.
+There are no known product gaps and no required next step.
