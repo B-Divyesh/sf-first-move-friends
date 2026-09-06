@@ -12,7 +12,16 @@ export default defineConfig({
     screenshot: 'only-on-failure'
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } }
+    {
+      name: 'chromium',
+      testIgnore: '**/webkit-phone-layout.spec.ts',
+      use: { ...devices['Desktop Chrome'] }
+    },
+    {
+      name: 'webkit-phone-layout',
+      testMatch: '**/webkit-phone-layout.spec.ts',
+      use: { browserName: 'webkit', hasTouch: true }
+    }
   ],
   webServer: [
     {
