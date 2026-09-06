@@ -1,4 +1,22 @@
-# First Move Friends review-1 handoff
+# First Move Friends review-2 handoff
+
+## Review-2 status
+
+Review-2 passed on 6 September 2026 UTC. The product remains ready for promotion.
+
+- Verdict: **PASS** — zero findings and zero untested claims.
+- Static implementation reviewed: `7561e61b1ff06b5ac2c940afe255e375aee82055`
+- Room-service implementation reviewed: `994d00f16359c86470add1b9a64d4148fd65de72`
+- Documentation candidate reviewed: `d7e94461f678c65e67f8a9c49cf299a33f2e3079`
+- Clean root and room-service install/audit, lint, typecheck, `npm test`, and production build passed.
+- All 21 exact claim commands passed separately. The actual paced duration check passed in 6.3 minutes.
+- Fresh live desktop and 390×844 phone contexts showed the job, audience, first action, and game before scrolling. Local and independent online runs both reached end screens and reset through rematch.
+- The live room service returned the room-service build identity above; tenant isolation returned 401 for a cross-room key, and a room-create boundary was six 201 responses then 429 with `Retry-After: 60`.
+- Live URL, axe, offline, invalid/recovery, keyboard, touch, reduced-motion, legal-page, and designed HTTP-404 checks passed. Final local static files matched live hashes byte-for-byte.
+
+Read `.factory/review-2.md` for complete evidence. It is copied to `/work/.evidence/qa-report.md` with matching `/work/.evidence/qa-result.json`.
+
+## Prior review-1 status
 
 ## Status
 
