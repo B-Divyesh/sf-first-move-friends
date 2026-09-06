@@ -1,0 +1,37 @@
+{
+  "chromium": {
+    "version": "145.0.7632.6",
+    "enteredFromHome": true,
+    "keyboardEnterPlaced": true,
+    "restoredPlacements": 1,
+    "completedPlacements": 16,
+    "result": "Moon wins 10–9",
+    "rematchPlacements": 0,
+    "productErrors": [],
+    "harnessMessages": []
+  },
+  "firefox": {
+    "version": "146.0.1",
+    "enteredFromHome": true,
+    "keyboardEnterPlaced": true,
+    "restoredPlacements": 1,
+    "completedPlacements": 16,
+    "result": "Moon wins 24–16",
+    "rematchPlacements": 0,
+    "productErrors": [],
+    "harnessMessages": []
+  },
+  "webkit": {
+    "version": "26.0",
+    "enteredFromHome": true,
+    "keyboardEnterPlaced": true,
+    "restoredPlacements": 1,
+    "completedPlacements": 16,
+    "result": "Moon wins 12–11",
+    "rematchPlacements": 0,
+    "productErrors": [],
+    "harnessMessages": [
+      "console: Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+    ]
+  }
+}

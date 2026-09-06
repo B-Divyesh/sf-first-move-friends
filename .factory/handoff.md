@@ -1,4 +1,22 @@
-# First Move Friends review-2 handoff
+# First Move Friends verification-6 handoff
+
+## Verification-6 status
+
+Verification-6 completed on 6 September 2026 UTC without product or deployment changes.
+
+- Verdict: **FAIL** — one minor finding, zero untested claims.
+- Static implementation reviewed: `7561e61b1ff06b5ac2c940afe255e375aee82055`.
+- Room-service implementation reviewed: `994d00f16359c86470add1b9a64d4148fd65de72`.
+- Documentation candidate reviewed: `345cc4ef43e54578284885f6d7162a8d1fc15238`.
+- Chromium `145.0.7632.6`, Firefox `146.0.1`, and WebKit `26.0` each completed fresh live sample and local games, recovered saved state, rematched, and passed keyboard, touch, audio-start, reduced-motion, offline, legal-route, 404, and accessibility checks.
+- Firefox and WebKit completed a real two-client room and reached the same end screen after the WebKit guest reloaded.
+- All 21 exact claim commands passed separately. The measured match-length command took 375 seconds.
+- The clean build and live static hashes match. Live backend health matches `994d00f`; isolation returned 401, and the rate boundary was six 201 responses then 429 with `Retry-After: 60`.
+- Finding: WebKit `26.0` places the 390×844 home preview board bottom at `845.2638549804688`, clipping about 1.26 pixels. Three fresh runs reproduced it. Chromium and Firefox stay within the viewport.
+
+Read `.factory/verification-6.md` for the full report. Evidence is in `.factory/verification-6-artifacts/`. The report is copied to `/work/.evidence/qa-report.md`; `/work/.evidence/qa-result.json` records the matching FAIL result.
+
+## Previous review-2 handoff
 
 ## Review-2 status
 

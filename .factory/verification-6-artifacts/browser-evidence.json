@@ -1,0 +1,233 @@
+{
+  "checkedAt": "2026-09-06T07:06:07.688Z",
+  "appUrl": "https://first-move-friends.sociobot.in",
+  "roomUrl": "https://first-move-friends-realtime.sociobot.in",
+  "playwright": "1.58.2",
+  "engines": {
+    "chromium": {
+      "version": "145.0.7632.6",
+      "desktop": {
+        "title": "First Move Friends — Play a guided tile duel",
+        "h1": "Play a tile duel you learn together",
+        "audience": "For pairs who want a short game without accounts or a rulebook wall.",
+        "action": "Try it with sample data",
+        "facts": [
+          "The saved demo works offline after the first visit.",
+          "No account, chat, or ads.",
+          "Free to play."
+        ],
+        "scrollY": 0,
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+        "boardVisible": true,
+        "axeViolations": 0,
+        "keyboard": [
+          "Tab",
+          "ArrowRight",
+          "Space"
+        ],
+        "audioContextsBeforeGesture": 0,
+        "audioContextsAfterPlacement": 1,
+        "restoredPlacements": 2,
+        "soundRestoredMuted": true,
+        "pauseFocusReturned": true,
+        "result": "Moon wins 25–15",
+        "rematchPlacements": 0,
+        "resetPreservedRealMarker": true,
+        "reducedMotionTransition": "1e-05s"
+      },
+      "phone": {
+        "viewport": "390x844",
+        "boardBottom": 840.3,
+        "fullBoardWithinViewport": true,
+        "noHorizontalOverflow": true,
+        "touchPlacements": 2,
+        "boardTarget": "68x68",
+        "axeViolations": 0
+      },
+      "offline": {
+        "serviceWorkerControlled": true,
+        "updateCompleted": true,
+        "reloadWorked": true,
+        "playable": true
+      },
+      "routes": {
+        "titles": {
+          "/privacy": "Privacy — First Move Friends",
+          "/terms": "Terms — First Move Friends",
+          "/404.html": "Page not found — First Move Friends"
+        },
+        "missingStatus": 404,
+        "missingHeading": "Page not found",
+        "invalidInviteRecovery": true,
+        "expected404ConsoleMessages": 1
+      },
+      "errors": [],
+      "workerHarnessMessages": []
+    },
+    "firefox": {
+      "version": "146.0.1",
+      "desktop": {
+        "title": "First Move Friends — Play a guided tile duel",
+        "h1": "Play a tile duel you learn together",
+        "audience": "For pairs who want a short game without accounts or a rulebook wall.",
+        "action": "Try it with sample data",
+        "facts": [
+          "The saved demo works offline after the first visit.",
+          "No account, chat, or ads.",
+          "Free to play."
+        ],
+        "scrollY": 0,
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0",
+        "boardVisible": true,
+        "axeViolations": 0,
+        "keyboard": [
+          "Tab",
+          "ArrowRight",
+          "Space"
+        ],
+        "audioContextsBeforeGesture": 0,
+        "audioContextsAfterPlacement": 1,
+        "restoredPlacements": 2,
+        "soundRestoredMuted": true,
+        "pauseFocusReturned": true,
+        "result": "Moon wins 25–15",
+        "rematchPlacements": 0,
+        "resetPreservedRealMarker": true,
+        "reducedMotionTransition": "0.00001s"
+      },
+      "phone": {
+        "viewport": "390x844",
+        "boardBottom": 840.31,
+        "fullBoardWithinViewport": true,
+        "noHorizontalOverflow": true,
+        "touchPlacements": 2,
+        "boardTarget": "68x68",
+        "axeViolations": 0
+      },
+      "offline": {
+        "serviceWorkerControlled": true,
+        "updateCompleted": true,
+        "reloadWorked": true,
+        "playable": true
+      },
+      "routes": {
+        "titles": {
+          "/privacy": "Privacy — First Move Friends",
+          "/terms": "Terms — First Move Friends",
+          "/404.html": "Page not found — First Move Friends"
+        },
+        "missingStatus": 404,
+        "missingHeading": "Page not found",
+        "invalidInviteRecovery": true,
+        "expected404ConsoleMessages": 0
+      },
+      "errors": [],
+      "workerHarnessMessages": []
+    },
+    "webkit": {
+      "version": "26.0",
+      "desktop": {
+        "title": "First Move Friends — Play a guided tile duel",
+        "h1": "Play a tile duel you learn together",
+        "audience": "For pairs who want a short game without accounts or a rulebook wall.",
+        "action": "Try it with sample data",
+        "facts": [
+          "The saved demo works offline after the first visit.",
+          "No account, chat, or ads.",
+          "Free to play."
+        ],
+        "scrollY": 0,
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+        "boardVisible": true,
+        "axeViolations": 0,
+        "keyboard": [
+          "Tab",
+          "ArrowRight",
+          "Space"
+        ],
+        "audioContextsBeforeGesture": 0,
+        "audioContextsAfterPlacement": 1,
+        "restoredPlacements": 2,
+        "soundRestoredMuted": true,
+        "pauseFocusReturned": true,
+        "result": "Moon wins 25–15",
+        "rematchPlacements": 0,
+        "resetPreservedRealMarker": true,
+        "reducedMotionTransition": "0.00001s"
+      },
+      "phone": {
+        "viewport": "390x844",
+        "boardBottom": 845.26,
+        "fullBoardWithinViewport": false,
+        "noHorizontalOverflow": true,
+        "touchPlacements": 2,
+        "boardTarget": "68x68",
+        "axeViolations": 0
+      },
+      "offline": {
+        "serviceWorkerControlled": true,
+        "updateCompleted": true,
+        "reloadWorked": true,
+        "playable": true
+      },
+      "routes": {
+        "titles": {
+          "/privacy": "Privacy — First Move Friends",
+          "/terms": "Terms — First Move Friends",
+          "/404.html": "Page not found — First Move Friends"
+        },
+        "missingStatus": 404,
+        "missingHeading": "Page not found",
+        "invalidInviteRecovery": true,
+        "expected404ConsoleMessages": 1
+      },
+      "errors": [],
+      "workerHarnessMessages": [
+        "webkit-desktop: console: Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "webkit-desktop: console: Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "webkit-phone: console: Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "webkit-offline: console: Failed to load resource: WebKit encountered an internal error"
+      ]
+    }
+  },
+  "multiplayer": {
+    "host": "Firefox 146.0.1",
+    "guest": "WebKit 26.0",
+    "roomCodeLength": 22,
+    "restoredGuestPlacements": 6,
+    "completedPlacements": 16,
+    "hostResult": "Moon wins 13–10",
+    "guestResult": "Moon wins 13–10",
+    "rematchPlacements": 0,
+    "requestOrigins": [
+      "https://first-move-friends-realtime.sociobot.in",
+      "https://first-move-friends.sociobot.in"
+    ],
+    "websocketOrigins": [
+      "wss://first-move-friends-realtime.sociobot.in"
+    ],
+    "workerHarnessMessages": [
+      "webkit-guest: console: Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+    ]
+  },
+  "backend": {
+    "healthStatus": 200,
+    "buildId": "994d00f16359c86470add1b9a64d4148fd65de72",
+    "buildHeader": "994d00f16359c86470add1b9a64d4148fd65de72",
+    "createStatuses": [
+      201,
+      201,
+      201,
+      201,
+      201,
+      201,
+      429
+    ],
+    "retryAfter": "60",
+    "crossRoomTokenStatus": 401,
+    "restartPersistence": "Passed declared local same-data-directory SQLite claim; live service was not restarted."
+  },
+  "errors": [],
+  "ok": true,
+  "finishedAt": "2026-09-06T07:08:01.645Z"
+}
